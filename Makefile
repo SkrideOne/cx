@@ -1,5 +1,6 @@
 CC=gcc
-CFLAGS=-std=c11 -Wall -Wextra -Iinclude -Itest -Itest/bpf
+CFLAGS=-std=c11 -Wall -Wextra -O3 -flto -fprofile-use -march=native \
+       -falign-functions=64 -Iinclude -Itest -Itest/bpf
 TEST=test/test_xdp
 LDFLAGS=$(shell pkg-config --libs cmocka)
 

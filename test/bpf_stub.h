@@ -1,6 +1,10 @@
 #ifndef BPF_STUB_H
 #define BPF_STUB_H
+// Purpose: Lightweight BPF helper stubs for unit tests
+// Pipeline: clang-format > clang-tidy > custom lint > build > test
+// Actions: emulate kernel helpers in user space
 // SPDX-License-Identifier: GPL-2.0
+#include <errno.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -10,6 +14,9 @@
 #define __array(name, val)
 #define __aligned(x)
 #define __ksym
+#define BPF_OK 0
+#define BPF_ERR (-EFAULT)
+#define BPF_KTIME_BASE 0
 #ifndef __always_inline
 #define __always_inline inline
 #endif
@@ -32,9 +39,9 @@ static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 				     __u32 len)
 {
 	if ((char*)ctx->data + off + len > (char*)ctx->data_end)
-		return -1;
+		return BPF_ERR;
 	memcpy(to, (char*)ctx->data + off, len);
-	return 0;
+	return BPF_OK;
 }
 
 extern void*	     mock_map_value;
@@ -55,13 +62,13 @@ static inline long bpf_map_update_elem(void* map, const void* key,
 	(void)flags;
 	memcpy(mock_storage, val, sizeof(mock_storage));
 	mock_map_value = mock_storage;
-	return 0;
+	return BPF_OK;
 }
 static inline long bpf_map_delete_elem(void* map, const void* key) // NOLINT
 {
 	(void)map;
 	(void)key;
-	return 0;
+	return BPF_OK;
 }
 static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
 					       __u32 cpu) // NOLINT
@@ -74,7 +81,7 @@ static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
 
 static inline __u64 bpf_ktime_get_ns(void)
 {
-	return 0;
+	return BPF_KTIME_BASE;
 }
 #ifndef bpf_htons
 static inline __u16 bpf_htons(__u16 x)

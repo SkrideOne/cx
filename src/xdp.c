@@ -2,6 +2,9 @@
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 
+// Purpose: XDP packet filtering logic
+// Pipeline: clang-format > clang-tidy > custom lint > build > test
+// Actions: parse packets and enforce ACL/flow rules
 // SPDX-License-Identifier: GPL-2.0
 
 #define MAP_DEF
@@ -9,6 +12,9 @@
 #undef MAP_DEF
 
 char _license[] SEC("license") = "GPL";
+
+#define RET_OK 0
+#define RET_ERR 1
 
 #define ETH_HLEN          14
 #define ETH_P_IP          0x0800
@@ -280,11 +286,11 @@ static __always_inline __u32 is_priv4(__u32 ip)
 static __always_inline __u32 drop_v4(struct xdp_md* ctx, __u16 proto)
 {
 	if (proto != bpf_htons(ETH_P_IP))
-		return 0;
+		return RET_OK;
 
 	__u32 ip = 0;
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &ip, 4))
-		return 1;
+		return RET_ERR;
 
 	__u32 bl = !!bpf_map_lookup_elem(&ip_blacklist, &ip);
 	return bl | is_priv4(ip);
@@ -293,11 +299,11 @@ static __always_inline __u32 drop_v4(struct xdp_md* ctx, __u16 proto)
 static __always_inline __u32 drop_v6(struct xdp_md* ctx, __u16 proto)
 {
 	if (proto != bpf_htons(ETH_P_IPV6))
-		return 0;
+		return RET_OK;
 
 	struct ip6_key k = {};
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k, 16))
-		return 1;
+		return RET_ERR;
 
 	__u8* p	   = (__u8*)&k;
 	__u8  ula  = ((*p & 0xfeu) == 0xfcu);

@@ -11,6 +11,8 @@ jobs:
         run: clang-format --dry-run --Werror $(git ls-files '*.c' '*.h')
       - name: Static analysis
         run: clang-tidy $(git ls-files '*.c') -- -Iinclude -Itest -Itest/bpf
+      - name: Custom lint
+        run: ./scripts/custom_lint.sh
       - name: Complexity
         run: lizard -C 2 -L 30 -T token_count=250 -a 3 $(git ls-files '*.c' '*.h')
       - name: Build

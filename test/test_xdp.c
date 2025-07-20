@@ -1,3 +1,6 @@
+// Purpose: Unit tests for XDP program
+// Pipeline: clang-format > clang-tidy > custom lint > build > test
+// Actions: validate IPv4/IPv6 parsing and ACL logic
 // SPDX-License-Identifier: GPL-2.0
 // clang-format off
 #include "bpf_stub.h"

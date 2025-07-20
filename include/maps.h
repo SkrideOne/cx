@@ -1,5 +1,8 @@
 #ifndef MAPS_H_
 #define MAPS_H_
+// Purpose: BPF map definitions shared across modules
+// Pipeline: clang-format > clang-tidy > custom lint > build > test
+// Actions: define map structures and externs
 // SPDX-License-Identifier: GPL-2.0
 
 #include <bpf/bpf_helpers.h>

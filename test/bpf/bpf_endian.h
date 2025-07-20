@@ -1,5 +1,8 @@
 #ifndef BPF_ENDIAN_H
 #define BPF_ENDIAN_H
+// Purpose: Little helpers for endian conversion in tests
+// Pipeline: clang-format > clang-tidy > custom lint > build > test
+// Actions: provide htons/htonl stubs
 // SPDX-License-Identifier: GPL-2.0
 #include <byteswap.h>
 #include <stdint.h>
