@@ -118,14 +118,32 @@ static inline __u32 bpf_ntohl(__u32 x)
     })
 #define bpf_tail_call(ctx, map, idx) do { } while(0)
 #define bpf_tail_call_static(ctx, map, idx) do { } while(0)
+#ifndef BPF_ANY
 #define BPF_ANY 0
+#endif
+#ifndef BPF_NOEXIST
 #define BPF_NOEXIST 1
+#endif
+#ifndef BPF_F_NO_COMMON_LRU
 #define BPF_F_NO_COMMON_LRU 0
+#endif
+#ifndef BPF_F_RDONLY_PROG
 #define BPF_F_RDONLY_PROG 0
+#endif
+#ifndef BPF_F_NO_PREALLOC
 #define BPF_F_NO_PREALLOC 0
+#endif
+#ifndef BPF_F_ZERO_SEED
 #define BPF_F_ZERO_SEED 0
+#endif
+#ifndef LIBBPF_PIN_BY_NAME
 #define LIBBPF_PIN_BY_NAME 0
+#endif
+#ifndef XDP_PASS
 #define XDP_PASS 2
+#endif
+#ifndef XDP_DROP
 #define XDP_DROP 1
+#endif
 
 #endif
