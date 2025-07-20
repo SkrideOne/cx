@@ -2,23 +2,23 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
+// SPDX-License-Identifier: GPL-2.0
+
 #define MAP_DEF
 #include "maps.h"
 #undef MAP_DEF
 
 char _license[] SEC("license") = "GPL";
 
-#define ETH_OFF           14
-#define ETH               14
-#define ETH_HDR_LEN       14
+#define ETH_HLEN          14
 #define ETH_P_IP          0x0800
 #define ETH_P_IPV6        0x86DD
 #define ETH_P_IP_BE       0x0008u
 #define ETH_P_IPV6_BE     0xDD86u
 #define AF_INET           2
 #define AF_INET6          10
-#define TCP               6
-#define UDP               17
+#define PROTO_TCP         6
+#define PROTO_UDP         17
 #define IPV6_HDR_LEN      40
 #define SYN_RATE_LIMIT    20
 #define SYN_BURST_LIMIT   100
@@ -173,10 +173,10 @@ static __always_inline void* wl_lookup_v4(void* data, void* end)
 {
     struct wl_u_key k = {.family = AF_INET};
 
-    if (data + ETH_OFF + 20 > end)
+    if (data + ETH_HLEN + 20 > end)
         return NULL;
 
-    *(__u32*)k.addr = *(__be32*)(data + ETH_OFF + 12);
+    *(__u32*)k.addr = *(__be32*)(data + ETH_HLEN + 12);
 
     return bpf_map_lookup_elem(&wl_map, &k);
 }
@@ -185,10 +185,10 @@ static __always_inline void* wl_lookup_v6(void* data, void* end)
 {
     struct wl_u_key k = {.family = AF_INET6};
 
-    if (data + ETH_OFF + 24 > end)
+    if (data + ETH_HLEN + 24 > end)
         return NULL;
 
-    __builtin_memcpy(k.addr, data + ETH_OFF + 8, 16);
+    __builtin_memcpy(k.addr, data + ETH_HLEN + 8, 16);
 
     return bpf_map_lookup_elem(&wl_map, &k);
 }
@@ -201,7 +201,7 @@ int xdp_wl_pass(struct xdp_md* ctx)
     __u32 k = 0;
     __u64* v;
 
-    if (data + ETH_OFF > end)
+    if (data + ETH_HLEN > end)
         return XDP_DROP;
 
     __u16 proto = *(__be16*)(data + 12);
@@ -249,15 +249,15 @@ static __always_inline __u32 allow_ipv4(struct xdp_md* ctx, __u16 proto)
 {
     __u32 err = proto ^ bpf_htons(ETH_P_IP);
     __u8  vhl = 0, l4 = 0;
-    err |= bpf_xdp_load_bytes(ctx, ETH_OFF, &vhl, 1);
-    err |= bpf_xdp_load_bytes(ctx, ETH_OFF + 9, &l4, 1);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &l4, 1);
     __u32 ihl = (vhl & 0x0fu) << 2;
 
     __u16 dp = 0;
-    err |= bpf_xdp_load_bytes(ctx, ETH_OFF + ihl + 2, &dp, 2);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + ihl + 2, &dp, 2);
     dp = bpf_ntohs(dp);
 
-    __u32 l4_ok = !(l4 ^ TCP) | !(l4 ^ UDP);
+    __u32 l4_ok = !(l4 ^ PROTO_TCP) | !(l4 ^ PROTO_UDP);
     return (!err) & l4_ok & port_allowed(dp);
 }
 
@@ -265,13 +265,13 @@ static __always_inline __u32 allow_ipv6(struct xdp_md* ctx, __u16 proto)
 {
     __u32 err = proto ^ bpf_htons(ETH_P_IPV6);
     __u8  nh  = 0;
-    err |= bpf_xdp_load_bytes(ctx, ETH_OFF + 6, &nh, 1);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &nh, 1);
 
     __u16 dp = 0;
-    err |= bpf_xdp_load_bytes(ctx, ETH_OFF + 42, &dp, 2);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 42, &dp, 2);
     dp = bpf_ntohs(dp);
 
-    __u32 l4_ok = !(nh ^ TCP) | !(nh ^ UDP);
+    __u32 l4_ok = !(nh ^ PROTO_TCP) | !(nh ^ PROTO_UDP);
     return (!err) & l4_ok & port_allowed(dp);
 }
 
@@ -279,7 +279,7 @@ SEC("xdp")
 int xdp_acl_dport(struct xdp_md* ctx)
 {
     __u16 proto = 0;
-    bpf_xdp_load_bytes(ctx, ETH_OFF - 2, &proto, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
     __u32 allow = allow_ipv4(ctx, proto) | allow_ipv6(ctx, proto);
     __u32 idx   = 4u + ((allow ^ 1u) << 3);
@@ -302,7 +302,7 @@ static __always_inline __u32 drop_v4(struct xdp_md* ctx, __u16 proto)
         return 0;
 
     __u32 ip = 0;
-    if (bpf_xdp_load_bytes(ctx, ETH_OFF + 12, &ip, 4))
+    if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &ip, 4))
         return 1;
 
     __u32 bl = !!bpf_map_lookup_elem(&ip_blacklist, &ip);
@@ -315,7 +315,7 @@ static __always_inline __u32 drop_v6(struct xdp_md* ctx, __u16 proto)
         return 0;
 
     struct ip6_key k = {};
-    if (bpf_xdp_load_bytes(ctx, ETH_OFF + 8, &k, 16))
+    if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k, 16))
         return 1;
 
     __u8* p    = (__u8*)&k;
@@ -330,7 +330,7 @@ SEC("xdp")
 int xdp_blacklist(struct xdp_md* ctx)
 {
     __u16 proto = 0;
-    bpf_xdp_load_bytes(ctx, ETH_OFF - 2, &proto, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
     __u32 drop = drop_v4(ctx, proto) | drop_v6(ctx, proto);
     __u32 idx  = 5u + (drop << 3);
@@ -342,35 +342,35 @@ int xdp_blacklist(struct xdp_md* ctx)
 static __always_inline void parse_l2(struct xdp_md* ctx, struct flow_ctx* f)
 {
     __u16 p = 0;
-    bpf_xdp_load_bytes(ctx, ETH - 2, &p, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &p, 2);
     f->ip4 = p == bpf_htons(ETH_P_IP);
     f->ip6 = p == bpf_htons(ETH_P_IPV6);
 }
 
 static __always_inline void parse_l3(struct xdp_md* ctx, struct flow_ctx* f)
 {
-    __u8 proto4 = 0, proto6 = 0, vhl = 0;
-    bpf_xdp_load_bytes(ctx, ETH + 9, &proto4, 1);
-    bpf_xdp_load_bytes(ctx, ETH + 6, &proto6, 1);
-    f->l4  = f->ip4 * proto4 + f->ip6 * proto6;
-    f->tcp = f->l4 == TCP;
-    f->udp = f->l4 == UDP;
-    bpf_xdp_load_bytes(ctx, ETH, &vhl, 1);
+    __u8 proto_v4 = 0, proto_v6 = 0, vhl = 0;
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &proto_v4, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &proto_v6, 1);
+    f->l4  = f->ip4 * proto_v4 + f->ip6 * proto_v6;
+    f->tcp = f->l4 == PROTO_TCP;
+    f->udp = f->l4 == PROTO_UDP;
+    bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
     __u32 ihl4 = ((__u32)(vhl & 0x0F) << 2);
     f->iph       = f->ip4 * ihl4 + f->ip6 * 40;
 }
 
 static __always_inline void build_keys(struct xdp_md* ctx, struct flow_ctx* f)
 {
-    bpf_xdp_load_bytes(ctx, ETH + 12, &f->k4.saddr, 4);
-    bpf_xdp_load_bytes(ctx, ETH + 16, &f->k4.daddr, 4);
-    bpf_xdp_load_bytes(ctx, ETH + f->iph, &f->k4.sport, 2);
-    bpf_xdp_load_bytes(ctx, ETH + f->iph + 2, &f->k4.dport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &f->k4.saddr, 4);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 16, &f->k4.daddr, 4);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + f->iph, &f->k4.sport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + f->iph + 2, &f->k4.dport, 2);
     f->k4.proto = f->l4;
-    bpf_xdp_load_bytes(ctx, ETH + 8, f->k6.saddr, 16);
-    bpf_xdp_load_bytes(ctx, ETH + 24, f->k6.daddr, 16);
-    bpf_xdp_load_bytes(ctx, ETH + 40, &f->k6.sport, 2);
-    bpf_xdp_load_bytes(ctx, ETH + 42, &f->k6.dport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, f->k6.saddr, 16);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 24, f->k6.daddr, 16);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 40, &f->k6.sport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 42, &f->k6.dport, 2);
     f->k6.proto = f->l4;
 }
 
@@ -409,8 +409,8 @@ static __always_inline void lookup_hits(struct flow_ctx* f)
 static __always_inline void cleanup_fin_rst(struct xdp_md* ctx, struct flow_ctx* f)
 {
     __u8 fl4 = 0, fl6 = 0;
-    bpf_xdp_load_bytes(ctx, ETH + f->iph + 13, &fl4, 1);
-    bpf_xdp_load_bytes(ctx, ETH + 53, &fl6, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + f->iph + 13, &fl4, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 53, &fl6, 1);
     __u8          fin_rst = is_fin_rst(f->ip4 * fl4 + f->ip6 * fl6) & f->tcp;
     struct flow_key k4    = f->k4;
     __u8          mask4   = -(fin_rst & f->ip4);
@@ -452,13 +452,13 @@ static __always_inline __u32 parse_v4(struct xdp_md* ctx, struct flow_key* k)
 {
     __u32 err = 0;
     __u8  vhl = 0, l4 = 0;
-    LD(ETH_HDR_LEN, &vhl);
-    LD(ETH_HDR_LEN + 9, &l4);
+    LD(ETH_HLEN, &vhl);
+    LD(ETH_HLEN + 9, &l4);
     __u32 ihl = (vhl & 0x0F) << 2;
-    LD(ETH_HDR_LEN + 12, &k->saddr);
-    LD(ETH_HDR_LEN + 16, &k->daddr);
-    LD(ETH_HDR_LEN + ihl, &k->sport);
-    LD(ETH_HDR_LEN + ihl + 2, &k->dport);
+    LD(ETH_HLEN + 12, &k->saddr);
+    LD(ETH_HLEN + 16, &k->daddr);
+    LD(ETH_HLEN + ihl, &k->sport);
+    LD(ETH_HLEN + ihl + 2, &k->dport);
     k->proto = l4;
     return err;
 }
@@ -467,11 +467,11 @@ static __always_inline __u32 parse_v6(struct xdp_md* ctx, struct bypass_v6* k6)
 {
     __u32 err = 0;
     __u8  nh  = 0;
-    LD(ETH_HDR_LEN + 6, &nh);
-    err |= bpf_xdp_load_bytes(ctx, ETH_HDR_LEN + 8, k6->saddr, 16);
-    err |= bpf_xdp_load_bytes(ctx, ETH_HDR_LEN + 24, k6->daddr, 16);
-    err |= bpf_xdp_load_bytes(ctx, ETH_HDR_LEN + 40, &k6->sport, 2);
-    err |= bpf_xdp_load_bytes(ctx, ETH_HDR_LEN + 42, &k6->dport, 2);
+    LD(ETH_HLEN + 6, &nh);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, k6->saddr, 16);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 24, k6->daddr, 16);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 40, &k6->sport, 2);
+    err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 42, &k6->dport, 2);
     k6->proto = nh;
     k6->dir   = 0;
     return err;
@@ -482,7 +482,7 @@ int xdp_suricata_gate(struct xdp_md* ctx)
 {
     __u32 err   = 0;
     __u16 proto = 0;
-    LD(ETH_HDR_LEN - 2, &proto);
+    LD(ETH_HLEN - 2, &proto);
 
     struct flow_key k4 = {};
     if (!(proto ^ bpf_htons(ETH_P_IP)) && !parse_v4(ctx, &k4)) {
@@ -512,10 +512,10 @@ static __always_inline void parse_l2_l3(struct xdp_md* ctx, struct dispatch_ctx*
     __u16 eth_proto = 0;
     __u8  vhl = 0, proto_v4 = 0, proto_v6 = 0;
 
-    bpf_xdp_load_bytes(ctx, ETH_OFF - 2, &eth_proto, 2);
-    bpf_xdp_load_bytes(ctx, ETH_OFF, &vhl, 1);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 9, &proto_v4, 1);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 6, &proto_v6, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth_proto, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &proto_v4, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &proto_v6, 1);
 
     d->is_ipv4 = eq32(eth_proto, ETH_P_IP_BE);
     d->is_ipv6 = eq32(eth_proto, ETH_P_IPV6_BE);
@@ -524,22 +524,22 @@ static __always_inline void parse_l2_l3(struct xdp_md* ctx, struct dispatch_ctx*
     d->hdr_len  = (ihl & d->is_ipv4) | (IPV6_HDR_LEN & d->is_ipv6);
     d->l4_proto = (proto_v4 & (__u8)d->is_ipv4) | (proto_v6 & (__u8)d->is_ipv6);
 
-    d->is_tcp = eq32(d->l4_proto, TCP);
-    d->is_udp = eq32(d->l4_proto, UDP);
+    d->is_tcp = eq32(d->l4_proto, PROTO_TCP);
+    d->is_udp = eq32(d->l4_proto, PROTO_UDP);
 }
 
 static __always_inline void build_keys_dispatch(struct xdp_md* ctx, struct dispatch_ctx* d)
 {
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 12, &d->k4.saddr, 4);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 16, &d->k4.daddr, 4);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + d->hdr_len, &d->k4.sport, 2);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + d->hdr_len + 2, &d->k4.dport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &d->k4.saddr, 4);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 16, &d->k4.daddr, 4);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + d->hdr_len, &d->k4.sport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + d->hdr_len + 2, &d->k4.dport, 2);
     d->k4.proto = d->l4_proto;
 
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 8, d->k6.saddr, 16);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 24, d->k6.daddr, 16);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 40, &d->k6.sport, 2);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 42, &d->k6.dport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, d->k6.saddr, 16);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 24, d->k6.daddr, 16);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 40, &d->k6.sport, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 42, &d->k6.dport, 2);
     d->k6.proto = d->l4_proto;
 }
 
@@ -584,25 +584,25 @@ int xdp_proto_dispatch(struct xdp_md* ctx)
 static __always_inline void detect_ip_proto(struct xdp_md* ctx, struct tcp_ctx* t)
 {
     __u16 eth_proto = 0;
-    bpf_xdp_load_bytes(ctx, ETH_OFF - 2, &eth_proto, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth_proto, 2);
     t->is_ipv4 = eq32(eth_proto, ETH_P_IP_BE);
     t->is_ipv6 = eq32(eth_proto, ETH_P_IPV6_BE);
 }
 
 static __always_inline void load_src_addr(struct xdp_md* ctx, struct tcp_ctx* t)
 {
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 12, &t->saddr, 4);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &t->saddr, 4);
     t->saddr &= t->is_ipv4;
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 8, &t->saddr6, sizeof(t->saddr6));
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &t->saddr6, sizeof(t->saddr6));
     mask_in6(&t->saddr6, -t->is_ipv6);
 }
 
 static __always_inline void load_tcp_flags(struct xdp_md* ctx, struct tcp_ctx* t)
 {
     __u8 vhl = 0;
-    bpf_xdp_load_bytes(ctx, ETH_OFF, &vhl, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
     __u32 ihl     = ((__u32)(vhl & 0x0F) << 2);
-    __u32 tcp_off = ETH_OFF + (ihl & t->is_ipv4) + (IPV6_HDR_LEN & t->is_ipv6);
+    __u32 tcp_off = ETH_HLEN + (ihl & t->is_ipv4) + (IPV6_HDR_LEN & t->is_ipv6);
     __u8 flags    = 0;
     bpf_xdp_load_bytes(ctx, tcp_off + 13, &flags, 1);
 
@@ -675,17 +675,17 @@ int xdp_tcp_state(struct xdp_md* ctx)
 static __always_inline void parse(struct xdp_md* ctx, struct pkt* p)
 {
     __u16 eth = 0;
-    bpf_xdp_load_bytes(ctx, ETH_OFF - 2, &eth, 2);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2);
     p->v4     = eq32(eth, ETH_P_IP_BE);
     p->v6     = eq32(eth, ETH_P_IPV6_BE);
     __u8 pr4 = 0, pr6 = 0;
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 9, &pr4, 1);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 6, &pr6, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &pr4, 1);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &pr6, 1);
     __u8 l4 = (pr4 & p->v4) | (pr6 & p->v6);
-    p->udp    = eq32(l4, UDP);
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 12, &p->sip, 4);
+    p->udp    = eq32(l4, PROTO_UDP);
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &p->sip, 4);
     p->sip &= p->v4;
-    bpf_xdp_load_bytes(ctx, ETH_OFF + 8, &p->sip6, sizeof(p->sip6));
+    bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &p->sip6, sizeof(p->sip6));
     clr_in6(&p->sip6, p->v6);
 }
 

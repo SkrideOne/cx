@@ -1,5 +1,6 @@
 #ifndef MAPS_H_
 #define MAPS_H_
+// SPDX-License-Identifier: GPL-2.0
 
 #include <bpf/bpf_helpers.h>
 
