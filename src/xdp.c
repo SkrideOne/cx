@@ -211,6 +211,7 @@ int xdp_wl_pass(struct xdp_md* ctx)
 SEC("xdp")
 int xdp_panic_flag(struct xdp_md* ctx)
 {
+	(void)ctx;
 	const __u32 k	 = 0;
 	const __u8* v	 = bpf_map_lookup_elem(&panic_flag, &k);
 	__u32	    drop = v ? (*v & 1u) : 0u;
@@ -414,6 +415,7 @@ static __always_inline void do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
 		    (!hit_any) * SURICATA_IDX;
 	(void)hit_any;
 	bpf_tail_call(ctx, &jmp_table, idx);
+	(void)ctx;
 	(void)idx;
 }
 

@@ -6,11 +6,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y clang clang-tidy smatch coccinelle libcmocka-dev
+        run: sudo apt-get update && sudo apt-get install -y clang clang-tidy smatch coccinelle libcmocka-dev && pip install lizard
       - name: Format
         run: clang-format --dry-run --Werror $(git ls-files '*.c' '*.h')
       - name: Static analysis
         run: clang-tidy $(git ls-files '*.c') -- -Iinclude -Itest -Itest/bpf
+      - name: Complexity
+        run: lizard -C 2 -L 30 -T token_count=250 -a 3 $(git ls-files '*.c' '*.h')
       - name: Build
         run: gcc -std=c11 -Wall -Wextra -Itest -Itest/bpf -Iinclude test/test_xdp.c -o test/test_xdp $(pkg-config --libs cmocka)
       - name: Run tests
