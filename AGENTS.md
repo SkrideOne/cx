@@ -106,6 +106,10 @@ Abort generation once output > 1.1 × `target_budget`.
 3e libFuzzer ≥ 30‟s per public API (stop early if 10 k exec/s stable)
 ⇢ return to Core step 5
 
+### LL‑3b  Workflow Order
+
+clang-format → clang-tidy → smatch → coccinelle → build → verify (bpftool prog load --dry-run) → load-test → func-test → bench → perf → bolt (ebpf-bolt + llvm-bolt)
+
 ---
 
 ### LL‑4  DEAD‑CODE HANDLING

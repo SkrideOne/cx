@@ -10,55 +10,96 @@
 #define __array(name, val)
 #define __aligned(x)
 #define __ksym
+#ifndef __always_inline
 #define __always_inline inline
+#endif
 
-typedef uint8_t __u8;
+typedef uint8_t	 __u8;
 typedef uint16_t __u16;
 typedef uint32_t __u32;
 typedef uint16_t __be16;
 typedef uint32_t __be32;
 typedef uint64_t __u64;
-typedef int32_t __s32;
-typedef int64_t __s64;
+typedef int32_t	 __s32;
+typedef int64_t	 __s64;
 
 struct xdp_md {
-    void *data;
-    void *data_end;
+	void* data;
+	void* data_end;
 };
 
-static inline int bpf_xdp_load_bytes(struct xdp_md *ctx, int off, void *to, __u32 len)
+static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
+				     __u32 len)
 {
-    if ((char *)ctx->data + off + len > (char *)ctx->data_end)
-        return -1;
-    memcpy(to, (char *)ctx->data + off, len);
-    return 0;
+	if ((char*)ctx->data + off + len > (char*)ctx->data_end)
+		return -1;
+	memcpy(to, (char*)ctx->data + off, len);
+	return 0;
 }
 
-extern void *mock_map_value;
+extern void*	     mock_map_value;
 static unsigned char mock_storage[64];
 
-static inline void *bpf_map_lookup_elem(void *map, const void *key)
+static inline void* bpf_map_lookup_elem(void* map, const void* key) // NOLINT
 {
-    (void)map;
-    (void)key;
-    return mock_map_value;
+	(void)map;
+	(void)key;
+	return mock_map_value;
 }
 
-static inline long bpf_map_update_elem(void *map, const void *key, const void *val, __u64 flags)
+static inline long bpf_map_update_elem(void* map, const void* key,
+				       const void* val, __u64 flags) // NOLINT
 {
-    (void)map; (void)key; (void)flags;
-    memcpy(mock_storage, val, sizeof(mock_storage));
-    mock_map_value = mock_storage;
-    return 0;
+	(void)map;
+	(void)key;
+	(void)flags;
+	memcpy(mock_storage, val, sizeof(mock_storage));
+	mock_map_value = mock_storage;
+	return 0;
 }
-static inline long bpf_map_delete_elem(void *map, const void *key) { (void)map; (void)key; return 0; }
-static inline void *bpf_map_lookup_percpu_elem(void *map, const void *key, __u32 cpu) { (void)map; (void)key; (void)cpu; return NULL; }
+static inline long bpf_map_delete_elem(void* map, const void* key) // NOLINT
+{
+	(void)map;
+	(void)key;
+	return 0;
+}
+static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
+					       __u32 cpu) // NOLINT
+{
+	(void)map;
+	(void)key;
+	(void)cpu;
+	return NULL;
+}
 
-static inline __u64 bpf_ktime_get_ns(void) { return 0; }
-static inline __u16 bpf_htons(__u16 x) { return (x << 8) | (x >> 8); }
-static inline __u32 bpf_htonl(__u32 x) { return __builtin_bswap32(x); }
-static inline __u16 bpf_ntohs(__u16 x) { return bpf_htons(x); }
-static inline __u32 bpf_ntohl(__u32 x) { return bpf_htonl(x); }
+static inline __u64 bpf_ktime_get_ns(void)
+{
+	return 0;
+}
+#ifndef bpf_htons
+static inline __u16 bpf_htons(__u16 x)
+{
+	return (x << 8) | (x >> 8);
+}
+#endif
+#ifndef bpf_htonl
+static inline __u32 bpf_htonl(__u32 x)
+{
+	return __builtin_bswap32(x);
+}
+#endif
+#ifndef bpf_ntohs
+static inline __u16 bpf_ntohs(__u16 x)
+{
+	return bpf_htons(x);
+}
+#endif
+#ifndef bpf_ntohl
+static inline __u32 bpf_ntohl(__u32 x)
+{
+	return bpf_htonl(x);
+}
+#endif
 
 #define bpf_probe_read_kernel(dest, size, src)                     \
     ({                                                          \

@@ -16,7 +16,7 @@
 struct wl_u_key {
 	__u32 family;
 	__u8  addr[16];
-} __attribute__((aligned(32)));
+} __attribute__((aligned(64)));
 
 struct flow_key {
 	__u32 saddr, daddr;
@@ -78,7 +78,8 @@ MAP_EXTERN struct wl_miss_map wl_miss MAP_SEC(".maps");
 struct wl_map {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(max_entries, 64);
-	__uint(map_flags, BPF_F_RDONLY_PROG | BPF_F_NO_PREALLOC | BPF_F_ZERO_SEED);
+	__uint(map_flags,
+	       BPF_F_RDONLY_PROG | BPF_F_NO_PREALLOC | BPF_F_ZERO_SEED);
 	__type(key, struct wl_u_key);
 	__type(value, __u8);
 };
