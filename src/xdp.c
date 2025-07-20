@@ -1,6 +1,8 @@
+#ifndef TEST_BUILD
 #include "vmlinux.h"
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
+#endif
 
 // Purpose: XDP packet filtering logic
 // Pipeline: clang-format > clang-tidy > custom lint > build > test
@@ -768,4 +770,3 @@ int xdp_udp_state(struct xdp_md* ctx)
 	unsigned int act   = (XDP_DROP & dm) | (XDP_PASS & ~dm);
 	return (int)act;
 }
-
