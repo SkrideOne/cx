@@ -14,8 +14,11 @@
 #define MAP_SEC(name)
 #else
 #define MAP_EXTERN
+
 #define MAP_SEC(name) SEC(name)
 #endif
+
+#define FLOW_TAB_SZ 65536
 
 /* Core structures - cache-aligned */
 struct wl_u_key {
@@ -92,7 +95,6 @@ struct wl_map {
 MAP_EXTERN struct wl_map wl_map MAP_SEC(".maps");
 
 /* Flow tables - percpu arrays for speed */
-#define FLOW_TAB_SZ 65536
 
 struct ids_flow_v4_map {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -172,40 +174,52 @@ struct udp6_flow_map {
 };
 MAP_EXTERN struct udp6_flow_map udp6_flow MAP_SEC(".maps");
 
-#else // TEST_BUILD
+#else  // TEST_BUILD
 
 // For tests, we just need dummy map declarations
-#define FLOW_TAB_SZ 65536
 
 // Dummy map structures for tests
-struct jmp_table_map {};
-struct panic_flag_map {};
-struct wl_miss_map {};
-struct wl_map {};
-struct ids_flow_v4_map {};
-struct ids_flow_v6_map {};
-struct acl_port_map {};
-struct ip_blacklist_map {};
-struct ip6_blacklist_map {};
-struct tcp_flow_map {};
-struct udp_flow_map {};
-struct tcp6_flow_map {};
-struct udp6_flow_map {};
+struct jmp_table_map {
+};
+struct panic_flag_map {
+};
+struct wl_miss_map {
+};
+struct wl_map {
+};
+struct ids_flow_v4_map {
+};
+struct ids_flow_v6_map {
+};
+struct acl_port_map {
+};
+struct ip_blacklist_map {
+};
+struct ip6_blacklist_map {
+};
+struct tcp_flow_map {
+};
+struct udp_flow_map {
+};
+struct tcp6_flow_map {
+};
+struct udp6_flow_map {
+};
 
 // Dummy map instances
-MAP_EXTERN struct jmp_table_map jmp_table;
-MAP_EXTERN struct panic_flag_map panic_flag;
-MAP_EXTERN struct wl_miss_map wl_miss;
-MAP_EXTERN struct wl_map wl_map;
-MAP_EXTERN struct ids_flow_v4_map flow_table_v4;
-MAP_EXTERN struct ids_flow_v6_map flow_table_v6;
-MAP_EXTERN struct acl_port_map acl_ports;
-MAP_EXTERN struct ip_blacklist_map ip_blacklist;
+MAP_EXTERN struct jmp_table_map	    jmp_table;
+MAP_EXTERN struct panic_flag_map    panic_flag;
+MAP_EXTERN struct wl_miss_map	    wl_miss;
+MAP_EXTERN struct wl_map	    wl_map;
+MAP_EXTERN struct ids_flow_v4_map   flow_table_v4;
+MAP_EXTERN struct ids_flow_v6_map   flow_table_v6;
+MAP_EXTERN struct acl_port_map	    acl_ports;
+MAP_EXTERN struct ip_blacklist_map  ip_blacklist;
 MAP_EXTERN struct ip6_blacklist_map ip6_blacklist;
-MAP_EXTERN struct tcp_flow_map tcp_flow;
-MAP_EXTERN struct udp_flow_map udp_flow;
-MAP_EXTERN struct tcp6_flow_map tcp6_flow;
-MAP_EXTERN struct udp6_flow_map udp6_flow;
+MAP_EXTERN struct tcp_flow_map	    tcp_flow;
+MAP_EXTERN struct udp_flow_map	    udp_flow;
+MAP_EXTERN struct tcp6_flow_map	    tcp6_flow;
+MAP_EXTERN struct udp6_flow_map	    udp6_flow;
 
 #endif // TEST_BUILD
 
