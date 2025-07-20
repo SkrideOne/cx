@@ -2,6 +2,7 @@ Checks: >
   clang-analyzer-*,
   bugprone-*,
   performance-*,
+  cppcoreguidelines-*,-cppcoreguidelines-owning-memory,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-macro-to-enum,-cppcoreguidelines-avoid-non-const-global-variables,
 
   modernize-use-designated-initializers,
   misc-use-internal-linkage,
@@ -26,6 +27,7 @@ WarningsAsErrors: >
   linuxkernel-*,
   performance-*,
   bugprone-signed-char-misuse,
+  cppcoreguidelines-*,-cppcoreguidelines-owning-memory,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-macro-to-enum,-cppcoreguidelines-avoid-non-const-global-variables,
 
 CheckOptions:
   - { key: readability-function-size.LineThreshold,             value: '60' }
