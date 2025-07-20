@@ -218,10 +218,9 @@ SEC("xdp")
 int xdp_panic_flag(struct xdp_md* ctx)
 {
 	(void)ctx;
-	const __u32 k	 = 0;
-	const __u8* v	 = bpf_map_lookup_elem(&panic_flag, &k);
-	__u32	    drop = v ? (*v & 1u) : 0u;
-	return drop ? XDP_DROP : XDP_PASS;
+	const __u32 k = 0;
+	const __u8* v = bpf_map_lookup_elem(&panic_flag, &k);
+	return (v && (*v & 1u)) ? XDP_DROP : XDP_PASS;
 }
 
 static __always_inline __u32 port_allowed(__u16 dp)
@@ -467,6 +466,23 @@ static __always_inline __u32 parse_v6(struct xdp_md* ctx, struct bypass_v6* k6)
 	return err;
 }
 
+static __always_inline int match_bypass_v4(const struct bypass_v4* v,
+					   const struct flow_key*  k)
+{
+	return v && v->saddr == k->saddr && v->daddr == k->daddr &&
+	       v->sport == k->sport && v->dport == k->dport &&
+	       v->proto == k->proto;
+}
+
+static __always_inline int match_bypass_v6(const struct bypass_v6* v,
+					   const struct bypass_v6* k)
+{
+	return v && !__builtin_memcmp(v->saddr, k->saddr, 16) &&
+	       !__builtin_memcmp(v->daddr, k->daddr, 16) &&
+	       v->sport == k->sport && v->dport == k->dport &&
+	       v->proto == k->proto;
+}
+
 SEC("xdp")
 int xdp_suricata_gate(struct xdp_md* ctx)
 {
@@ -479,9 +495,7 @@ int xdp_suricata_gate(struct xdp_md* ctx)
 		__u32		  idx = idx_v4(&k4);
 		struct bypass_v4* v =
 		    bpf_map_lookup_percpu_elem(&flow_table_v4, &idx, 0);
-		if (v && v->saddr == k4.saddr && v->daddr == k4.daddr &&
-		    v->sport == k4.sport && v->dport == k4.dport &&
-		    v->proto == k4.proto)
+		if (match_bypass_v4(v, &k4))
 			return XDP_DROP;
 	}
 
@@ -490,10 +504,7 @@ int xdp_suricata_gate(struct xdp_md* ctx)
 		__u32		  idx = idx_v6(&k6);
 		struct bypass_v6* v6 =
 		    bpf_map_lookup_percpu_elem(&flow_table_v6, &idx, 0);
-		if (v6 && !__builtin_memcmp(v6->saddr, k6.saddr, 16) &&
-		    !__builtin_memcmp(v6->daddr, k6.daddr, 16) &&
-		    v6->sport == k6.sport && v6->dport == k6.dport &&
-		    v6->proto == k6.proto)
+		if (match_bypass_v6(v6, &k6))
 			return XDP_DROP;
 	}
 
@@ -618,9 +629,8 @@ static __always_inline void parse_packet(struct xdp_md* ctx, struct tcp_ctx* t)
 
 static __always_inline struct ip_key make_key(const struct tcp_ctx* t)
 {
-	struct ip_key k = {};
-	k.is_v6		= t->is_ipv6;
-	k.addr		= t->saddr6;
+	struct ip_key k = {.is_v6 = t->is_ipv6};
+	__builtin_memcpy(&k.addr, &t->saddr6, sizeof(k.addr));
 	((__u32*)&k.addr)[0] |= t->saddr;
 	return k;
 }
