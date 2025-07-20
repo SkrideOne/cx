@@ -169,61 +169,41 @@ int xdp_core(struct xdp_md* ctx)
         return XDP_PASS;
 }
 
-static __always_inline void* wl_lookup_v4(void* data, void* end)
+static __always_inline void* wl_lookup_v4(struct xdp_md* ctx)
 {
-	struct wl_u_key k = {.family = AF_INET};
-
-	if (data + ETH_HLEN + 20 > end)
-		return NULL;
-
-	*(__u32*)k.addr = *(__be32*)(data + ETH_HLEN + 12);
-
-	return bpf_map_lookup_elem(&wl_map, &k);
+        struct wl_u_key k = {.family = AF_INET};
+        if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k.addr, 4))
+                return NULL;
+        return bpf_map_lookup_elem(&wl_map, &k);
 }
 
-static __always_inline void* wl_lookup_v6(void* data, void* end)
+static __always_inline void* wl_lookup_v6(struct xdp_md* ctx)
 {
-	struct wl_u_key k = {.family = AF_INET6};
-
-	if (data + ETH_HLEN + 24 > end)
-		return NULL;
-
-	__builtin_memcpy(k.addr, data + ETH_HLEN + 8, 16);
-
-	return bpf_map_lookup_elem(&wl_map, &k);
+        struct wl_u_key k = {.family = AF_INET6};
+        if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, k.addr, 16))
+                return NULL;
+        return bpf_map_lookup_elem(&wl_map, &k);
 }
 
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
-        void*  data = ctx->data; /* NOLINT(performance-no-int-to-ptr) */
-        void*  end  = ctx->data_end;
-	__u32  k    = 0;
-	__u64* v;
+        __u32 k = 0;
+        __u64* v;
+        __u16 proto = 0;
+        if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2))
+                return XDP_DROP;
 
-	if (data + ETH_HLEN > end)
-		return XDP_DROP;
+        __u32 is_v4 = !(proto ^ bpf_htons(ETH_P_IP));
+        __u32 is_v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
 
-	__u16 proto = *(__be16*)(data + 12);
+        __u32 hit4 = !!wl_lookup_v4(ctx);
+        __u32 hit6 = !!wl_lookup_v6(ctx);
 
-	if (proto == bpf_htons(ETH_P_IP)) {
-		if (wl_lookup_v4(data, end))
-			return XDP_PASS;
-		goto miss;
-	}
-
-	if (proto == bpf_htons(ETH_P_IPV6)) {
-		if (wl_lookup_v6(data, end))
-			return XDP_PASS;
-		goto miss;
-	}
-
-	return XDP_PASS;
-
-miss:
+        __u32 miss = (is_v4 & !hit4) | (is_v6 & !hit6);
         v = bpf_map_lookup_elem(&wl_miss, &k);
-        if (v)
-                __sync_fetch_and_add(v, 1);
+        if (v && miss)
+                __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
 
         return XDP_PASS;
 }
