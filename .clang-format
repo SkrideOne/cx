@@ -2,7 +2,7 @@ BasedOnStyle: LLVM
 BreakBeforeBraces: Linux
 UseTab: Always
 IndentWidth: 8
-ColumnLimit: 100
+ColumnLimit: 80
 
 AllowShortIfStatementsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
@@ -35,7 +35,7 @@ SpacesInParensOptions:
 IndentPPDirectives: None
 
 IncludeBlocks: Preserve
-SortIncludes: Never
+SortIncludes: CaseSensitive
 IncludeCategories:
   - { Regex: '^"include/',        Priority: 1 }
 
