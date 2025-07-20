@@ -1,0 +1,56 @@
+BasedOnStyle: LLVM
+BreakBeforeBraces: Linux
+UseTab: Always
+IndentWidth: 8
+ColumnLimit: 100
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+AllowShortCaseExpressionOnASingleLine: false
+AllowShortCompoundRequirementOnASingleLine: false
+
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AlignFunctionPointers: true
+AlignConsecutiveAssignments: true
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1
+AlignEscapedNewlines: LeftWithLastLine
+PenaltyBreakScopeResolution: 50
+
+AllowBreakBeforeNoexceptSpecifier: Never
+BreakAdjacentStringLiterals: true
+BreakTemplateDeclarations: Yes
+BreakAfterReturnType: None
+SkipMacroDefinitionBody: true
+
+PointerAlignment: Left
+SpaceBeforeParens: ControlStatements
+SpaceBeforeSquareBrackets: false
+SpacesInParensOptions:
+  ExceptDoubleParentheses: true
+
+IndentPPDirectives: None
+
+IncludeBlocks: Preserve
+SortIncludes: Never
+IncludeCategories:
+  - { Regex: '^"include/',        Priority: 1 }
+
+ForEachMacros:
+  - bpf_object__for_each_map
+  - bpf_object__for_each_program
+  - FOR_EACH_OPTION
+  - FOR_EACH_MAP_KEY
+  - list_for_each_entry
+  - list_for_each_entry_safe
+  - hashmap__for_each_entry
+
+KeepEmptyLines:
+  AtEndOfFile: true
+  AtStartOfBlock: true
+  AtStartOfFile: true
+
+CommentPragmas: '^/|^ IWYU pragma:'
