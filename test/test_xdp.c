@@ -495,6 +495,60 @@ static void test_xdp_wl_pass_miss(void** state)
 	assert_int_equal(miss, 1);
 }
 
+static void test_parse_v4_ok(void** state)
+{
+	(void)state;
+	unsigned char buf[64] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
+	buf[26] = 10;
+	buf[27] = 0;
+	buf[28] = 0;
+	buf[29] = 1;
+	buf[30] = 10;
+	buf[31] = 0;
+	buf[32] = 0;
+	buf[33] = 2;
+	buf[34] = 0x00;
+	buf[35] = 0x50; /* sport 80 */
+	buf[36] = 0x00;
+	buf[37] = 0x64; /* dport 100 */
+
+	struct flow_key k = {0};
+
+	assert_int_equal(parse_v4(&ctx, &k), 0);
+}
+
+static void test_parse_v6_ok(void** state)
+{
+	(void)state;
+	unsigned char buf[96] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12]		      = 0x86;
+	buf[13]		      = 0xdd;
+	buf[14]		      = 0x60;
+	buf[20]		      = 17;
+	unsigned char src[16] = {0x20, 0x01, 0, 0, 0, 0, 0, 0,
+				 0,    0,    0, 0, 0, 0, 0, 1};
+	unsigned char dst[16] = {0x20, 0x01, 0, 0, 0, 0, 0, 0,
+				 0,    0,    0, 0, 0, 0, 0, 2};
+	memcpy(buf + 22, src, 16);
+	memcpy(buf + 38, dst, 16);
+	buf[54] = 0x00;
+	buf[55] = 0x35; /* sport 53 */
+	buf[56] = 0x01;
+	buf[57] = 0xbb; /* dport 443 */
+
+	struct bypass_v6 k6 = {0};
+
+	assert_int_equal(parse_v6(&ctx, &k6), 0);
+}
+
 static void test_parse_v4_error(void** state)
 {
 	(void)state;
@@ -655,6 +709,8 @@ int main(void)
 	    cmocka_unit_test(test_xdp_tcp_state_ipv6),
 	    cmocka_unit_test(test_xdp_wl_pass_hit),
 	    cmocka_unit_test(test_xdp_wl_pass_miss),
+	    cmocka_unit_test(test_parse_v4_ok),
+	    cmocka_unit_test(test_parse_v6_ok),
 	    cmocka_unit_test(test_parse_v4_error),
 	    cmocka_unit_test(test_parse_v6_error),
 	    cmocka_unit_test(test_xdp_wl_pass_bad_packet),
