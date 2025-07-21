@@ -78,11 +78,11 @@ struct panic_flag_map {
 MAP_EXTERN struct panic_flag_map panic_flag MAP_SEC(".maps");
 
 
-/* Whitelist - LRU for auto-eviction */
+/* Whitelist - dynamic, managed from user space */
 struct wl_map {
-        __uint(type, BPF_MAP_TYPE_LRU_HASH);
-        __uint(max_entries, 64);
-        __uint(map_flags, BPF_F_RDONLY_PROG | BPF_F_ZERO_SEED);
+        __uint(type, BPF_MAP_TYPE_HASH);
+        __uint(max_entries, 128); /* room for 64 entries */
+        __uint(map_flags, BPF_F_NO_PREALLOC);
         __type(key, struct wl_v6_key);
         __type(value, __u8);
 };

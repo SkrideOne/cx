@@ -4,11 +4,12 @@ CFLAGS_BASE=-std=c11 -Wall -Wextra -O3 -march=native -falign-functions=64 \
 CFLAGS_PROFILE=-flto -fprofile-use
 CFLAGS=$(CFLAGS_BASE)
 TEST=test/test_xdp
+WL=scripts/wl
 LDFLAGS=$(shell pkg-config --libs cmocka)
 
-.PHONY: all test clean format tidy lizard profile-gen profile-use
+.PHONY: all test wl clean format tidy lizard profile-gen profile-use
 
-all: $(TEST)
+all: $(TEST) $(WL)
 
 $(TEST): test/test_xdp.c src/xdp.c include/maps.h
 	$(CC) $(CFLAGS) test/test_xdp.c -o $(TEST) $(LDFLAGS)
@@ -24,6 +25,11 @@ profile-gen: clean $(TEST)
 
 profile-use: CFLAGS=$(CFLAGS_BASE) $(CFLAGS_PROFILE)
 profile-use: $(TEST)
+
+$(WL): scripts/wl.c include/maps.h
+	$(CC) $(CFLAGS) scripts/wl.c -o $(WL) -lbpf
+
+wl: $(WL)
 
 format:
 	clang-format -i $(shell git ls-files '*.c' '*.h')

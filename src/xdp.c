@@ -203,6 +203,18 @@ static __always_inline void count_slow(void)
                __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
 }
 
+/* Whitelist management helpers */
+static __always_inline void wl_add(const struct wl_v6_key* k)
+{
+        __u8 one = 1;
+        bpf_map_update_elem(&wl_map, k, &one, BPF_ANY);
+}
+
+static __always_inline void wl_del(const struct wl_v6_key* k)
+{
+        bpf_map_delete_elem(&wl_map, k);
+}
+
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
@@ -215,16 +227,16 @@ int xdp_wl_pass(struct xdp_md* ctx)
         bool v6 = eth == bpf_htons(ETH_P_IPV6);
 
         /* 2. src address */
-        __u32          src4 = 0;
-        struct in6_addr src6 = {};
+        struct wl_v6_key k4 = {.family = AF_INET};
+        struct wl_v6_key k6 = {.family = AF_INET6};
         if (v4)
-                bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &src4, 4);
+                bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k4.addr.s6_addr32, 4);
         if (v6)
-                bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &src6, 16);
+                bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
         /* 3. lookup */
-        bool hit = (v4 && bpf_map_lookup_elem(&wl_map, &src4)) ||
-                   (v6 && bpf_map_lookup_elem(&wl_map, &src6));
+        bool hit = (v4 && bpf_map_lookup_elem(&wl_map, &k4)) ||
+                   (v6 && bpf_map_lookup_elem(&wl_map, &k6));
 
         if (hit)
                 return XDP_PASS;
