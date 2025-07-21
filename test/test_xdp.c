@@ -73,11 +73,11 @@ typedef int64_t	 __s64;
 #include "bpf_stub.h"
 
 struct in6_addr {
-        union {
-                __u8  u6_addr8[16];
-                __u16 u6_addr16[8];
-                __u32 u6_addr32[4];
-        } in6_u;
+	union {
+		__u8  u6_addr8[16];
+		__u16 u6_addr16[8];
+		__u32 u6_addr32[4];
+	} in6_u;
 #define s6_addr in6_u.u6_addr8
 };
 
@@ -495,6 +495,85 @@ static void test_xdp_wl_pass_miss(void** state)
 	assert_int_equal(miss, 1);
 }
 
+static void test_parse_v4_error(void** state)
+{
+	(void)state;
+	unsigned char buf[28] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[14] = 0x45;
+
+	struct flow_key k = {0};
+
+	assert_int_not_equal(parse_v4(&ctx, &k), 0);
+}
+
+static void test_parse_v6_error(void** state)
+{
+	(void)state;
+	unsigned char buf[50] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[14] = 0x60;
+
+	struct bypass_v6 k6 = {0};
+
+	assert_int_not_equal(parse_v6(&ctx, &k6), 0);
+}
+
+static void test_xdp_wl_pass_bad_packet(void** state)
+{
+	(void)state;
+	unsigned char buf[28] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+
+	__u64 miss	   = 0;
+	mock_wl_value	   = NULL;
+	mock_wl_miss_value = &miss;
+
+	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
+	assert_int_equal(miss, 1);
+}
+
+static void test_xdp_suricata_gate_no_entry(void** state)
+{
+	(void)state;
+	unsigned char buf[64] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
+
+	__u8 g			 = 0;
+	mock_global_bypass_value = &g;
+	mock_flow_v4_value	 = NULL;
+
+	assert_int_equal(xdp_suricata_gate(&ctx), XDP_PASS);
+}
+
+static void test_xdp_suricata_gate_parse_err(void** state)
+{
+	(void)state;
+	unsigned char buf[24] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+
+	__u8 g			 = 0;
+	mock_global_bypass_value = &g;
+	mock_flow_v4_value	 = NULL;
+
+	assert_int_equal(xdp_suricata_gate(&ctx), XDP_PASS);
+}
+
 static void test_xdp_suricata_gate_global_bypass(void** state)
 {
 	(void)state;
@@ -576,6 +655,11 @@ int main(void)
 	    cmocka_unit_test(test_xdp_tcp_state_ipv6),
 	    cmocka_unit_test(test_xdp_wl_pass_hit),
 	    cmocka_unit_test(test_xdp_wl_pass_miss),
+	    cmocka_unit_test(test_parse_v4_error),
+	    cmocka_unit_test(test_parse_v6_error),
+	    cmocka_unit_test(test_xdp_wl_pass_bad_packet),
+	    cmocka_unit_test(test_xdp_suricata_gate_no_entry),
+	    cmocka_unit_test(test_xdp_suricata_gate_parse_err),
 	    cmocka_unit_test(test_xdp_suricata_gate_global_bypass),
 	    cmocka_unit_test(test_xdp_suricata_gate_drop),
 	    cmocka_unit_test(test_parse_l2_l3_ipv4),
