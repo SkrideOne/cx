@@ -207,12 +207,12 @@ static __always_inline void count_slow(void)
 static __always_inline void wl_add(const struct wl_v6_key* k)
 {
         __u8 one = 1;
-        bpf_map_update_elem(&wl_map, k, &one, BPF_ANY);
+        bpf_map_update_elem(&WL_MAP, k, &one, BPF_ANY);
 }
 
 static __always_inline void wl_del(const struct wl_v6_key* k)
 {
-        bpf_map_delete_elem(&wl_map, k);
+        bpf_map_delete_elem(&WL_MAP, k);
 }
 
 SEC("xdp")
@@ -235,8 +235,8 @@ int xdp_wl_pass(struct xdp_md* ctx)
                 bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
         /* 3. lookup */
-        bool hit = (v4 && bpf_map_lookup_elem(&wl_map, &k4)) ||
-                   (v6 && bpf_map_lookup_elem(&wl_map, &k6));
+        bool hit = (v4 && bpf_map_lookup_elem(&WL_MAP, &k4)) ||
+                   (v6 && bpf_map_lookup_elem(&WL_MAP, &k6));
 
         if (hit)
                 return XDP_PASS;

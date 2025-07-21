@@ -86,7 +86,7 @@ struct wl_map {
         __type(key, struct wl_v6_key);
         __type(value, __u8);
 };
-MAP_EXTERN struct wl_map wl_map MAP_SEC(".maps");
+MAP_EXTERN struct wl_map WL_MAP MAP_SEC(".maps");
 
 /* Flow tables - percpu arrays for speed */
 
@@ -210,7 +210,7 @@ struct udp6_flow_map {
 // Dummy map instances
 MAP_EXTERN struct jmp_table_map	    jmp_table;
 MAP_EXTERN struct panic_flag_map    panic_flag;
-MAP_EXTERN struct wl_map	    wl_map;
+MAP_EXTERN struct wl_map            WL_MAP;
 MAP_EXTERN struct ids_flow_v4_map   flow_table_v4;
 MAP_EXTERN struct ids_flow_v6_map   flow_table_v6;
 MAP_EXTERN struct acl_port_map	    acl_ports;
