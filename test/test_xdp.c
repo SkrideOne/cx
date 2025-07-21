@@ -4,13 +4,13 @@
 // SPDX-License-Identifier: GPL-2.0
 
 // Test environment - we don't include vmlinux.h in tests
+#include <cmocka.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <cmocka.h>
 
 // Basic type definitions for tests
 typedef uint8_t	 __u8;
@@ -70,11 +70,11 @@ struct xdp_md {
 
 // Test-specific in6_addr structure
 struct in6_addr {
-        union {
-                __u8  u6_addr8[16];
-                __u16 u6_addr16[8];
-                __u32 u6_addr32[4];
-        } in6_u;
+	union {
+		__u8  u6_addr8[16];
+		__u16 u6_addr16[8];
+		__u32 u6_addr32[4];
+	} in6_u;
 #define s6_addr in6_u.u6_addr8
 #define s6_addr32 in6_u.u6_addr32
 };
@@ -83,25 +83,25 @@ struct in6_addr {
 #include "../include/maps.h"
 
 // Dummy map instances for tests
-struct jmp_table_map     jmp_table;
-struct panic_flag_map    panic_flag;
-struct wl_map            WL_MAP;
-struct ids_flow_v4_map   flow_table_v4;
-struct ids_flow_v6_map   flow_table_v6;
-struct acl_port_map      acl_ports;
-struct ipv4_drop_map     ipv4_drop;
-struct ipv6_drop_map     ipv6_drop;
-struct tcp_flow_map      tcp_flow;
-struct udp_flow_map      udp_flow;
-struct tcp6_flow_map     tcp6_flow;
-struct udp6_flow_map     udp6_flow;
-struct path_stats_map    path_stats;
+struct jmp_table_map   jmp_table;
+struct panic_flag_map  panic_flag;
+struct wl_map	       WL_MAP;
+struct ids_flow_v4_map flow_table_v4;
+struct ids_flow_v6_map flow_table_v6;
+struct acl_port_map    acl_ports;
+struct ipv4_drop_map   ipv4_drop;
+struct ipv6_drop_map   ipv6_drop;
+struct tcp_flow_map    tcp_flow;
+struct udp_flow_map    udp_flow;
+struct tcp6_flow_map   tcp6_flow;
+struct udp6_flow_map   udp6_flow;
+struct path_stats_map  path_stats;
 
 #define WL_CAP 128
 struct wl_entry {
-        struct wl_v6_key key;
-        __u8             val;
-        int              used;
+	struct wl_v6_key key;
+	__u8		 val;
+	int		 used;
 };
 static struct wl_entry wl_tab[WL_CAP];
 
@@ -111,6 +111,7 @@ static void*	     mock_map_seq[8];
 static int	     mock_map_idx;
 static int	     use_seq;
 static unsigned char mock_storage[64];
+static int	     tailcall_enable;
 
 static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 				     __u32 len)
@@ -123,65 +124,65 @@ static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 
 static void wl_reset(void)
 {
-        for (int i = 0; i < WL_CAP; ++i)
-                wl_tab[i].used = 0;
+	for (int i = 0; i < WL_CAP; ++i)
+		wl_tab[i].used = 0;
 }
 
 static inline void* bpf_map_lookup_elem(void* map, const void* key)
 {
-        if (use_seq)
-                return mock_map_seq[mock_map_idx++];
-        if (map == &WL_MAP) {
-                const struct wl_v6_key* k = key;
-                for (int i = 0; i < WL_CAP; ++i)
-                        if (wl_tab[i].used &&
-                            !memcmp(&wl_tab[i].key, k, sizeof(*k)))
-                                return &wl_tab[i].val;
-                return NULL;
-        }
-        return mock_map_value;
+	if (use_seq)
+		return mock_map_seq[mock_map_idx++];
+	if (map == &WL_MAP) {
+		const struct wl_v6_key* k = key;
+		for (int i = 0; i < WL_CAP; ++i)
+			if (wl_tab[i].used &&
+			    !memcmp(&wl_tab[i].key, k, sizeof(*k)))
+				return &wl_tab[i].val;
+		return NULL;
+	}
+	return mock_map_value;
 }
 
 static inline long bpf_map_update_elem(void* map, const void* key,
-                                       const void* val, __u64 flags)
+				       const void* val, __u64 flags)
 {
-        if (map == &WL_MAP) {
-                const struct wl_v6_key* k = key;
-                const __u8*             v = val;
-                for (int i = 0; i < WL_CAP; ++i)
-                        if (wl_tab[i].used &&
-                            !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
-                                wl_tab[i].val = *v;
-                                return BPF_OK;
-                        }
-                for (int i = 0; i < WL_CAP; ++i)
-                        if (!wl_tab[i].used) {
-                                wl_tab[i].key  = *k;
-                                wl_tab[i].val  = *v;
-                                wl_tab[i].used = 1;
-                                return BPF_OK;
-                        }
-                return BPF_ERR;
-        }
-        (void)flags;
-        memcpy(mock_storage, val, sizeof(mock_storage));
-        mock_map_value = mock_storage;
-        return BPF_OK;
+	if (map == &WL_MAP) {
+		const struct wl_v6_key* k = key;
+		const __u8*		v = val;
+		for (int i = 0; i < WL_CAP; ++i)
+			if (wl_tab[i].used &&
+			    !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
+				wl_tab[i].val = *v;
+				return BPF_OK;
+			}
+		for (int i = 0; i < WL_CAP; ++i)
+			if (!wl_tab[i].used) {
+				wl_tab[i].key  = *k;
+				wl_tab[i].val  = *v;
+				wl_tab[i].used = 1;
+				return BPF_OK;
+			}
+		return BPF_ERR;
+	}
+	(void)flags;
+	memcpy(mock_storage, val, sizeof(mock_storage));
+	mock_map_value = mock_storage;
+	return BPF_OK;
 }
 
 static inline long bpf_map_delete_elem(void* map, const void* key)
 {
-        if (map == &WL_MAP) {
-                const struct wl_v6_key* k = key;
-                for (int i = 0; i < WL_CAP; ++i)
-                        if (wl_tab[i].used &&
-                            !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
-                                wl_tab[i].used = 0;
-                                return BPF_OK;
-                        }
-                return BPF_ERR;
-        }
-        return BPF_OK;
+	if (map == &WL_MAP) {
+		const struct wl_v6_key* k = key;
+		for (int i = 0; i < WL_CAP; ++i)
+			if (wl_tab[i].used &&
+			    !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
+				wl_tab[i].used = 0;
+				return BPF_OK;
+			}
+		return BPF_ERR;
+	}
+	return BPF_OK;
 }
 
 static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
@@ -227,7 +228,17 @@ static inline __u32 bpf_ntohl(__u32 x)
 		0; \
 	})
 
-#define bpf_tail_call(ctx, map, idx) do { } while(0)
+#define bpf_tail_call(ctx, map, idx)                                          \
+    do {                                                                     \
+        if (tailcall_enable) {                                               \
+            if ((idx) == TCP_STATE_IDX)                                      \
+                return xdp_tcp_state(ctx);                                   \
+            else if ((idx) == UDP_STATE_IDX)                                 \
+                return xdp_udp_state(ctx);                                   \
+            else if ((idx) == SURICATA_IDX)                                  \
+                return xdp_suricata_gate(ctx);                               \
+        }                                                                    \
+    } while (0)
 #define __atomic_fetch_add(ptr, val, order) ({ \
 	__typeof__(*(ptr)) old = *(ptr); \
 	*(ptr) += (val); \
@@ -416,7 +427,7 @@ static void test_xdp_wl_pass_hit(void** state)
 	__u8 val	= 1;
 	use_seq		= 1;
 	mock_map_idx	= 0;
-        mock_map_seq[0] = &val; // whitelist hit
+	mock_map_seq[0] = &val; // whitelist hit
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
 	assert_int_equal(mock_map_idx, 1);
@@ -659,94 +670,192 @@ static void test_panic_flag_drop(void** state)
 	__u8 flag	= 1;
 	use_seq		= 1;
 	mock_map_idx	= 0;
-        mock_map_seq[0] = NULL;  // whitelist miss
+	mock_map_seq[0] = NULL;	 // whitelist miss
 	mock_map_seq[1] = &flag; // panic_flag
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
-       assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
-       use_seq = 0;
+	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
+	use_seq = 0;
 }
 
 static void test_dynamic_wl(void** state)
 {
-        (void)state;
-        wl_reset();
-        __u8 one = 1;
-        struct wl_v6_key k = {.family = AF_INET};
-        for (int i = 0; i < 64; ++i) {
-                __u32 ip = bpf_htonl(0x0a000001 + i);
-                k.addr.s6_addr32[0] = ip;
-                assert_int_equal(bpf_map_update_elem(&WL_MAP, &k, &one, BPF_ANY),
-                                 BPF_OK);
-        }
+	(void)state;
+	wl_reset();
+	__u8		 one = 1;
+	struct wl_v6_key k   = {.family = AF_INET};
+	for (int i = 0; i < 64; ++i) {
+		__u32 ip	    = bpf_htonl(0x0a000001 + i);
+		k.addr.s6_addr32[0] = ip;
+		assert_int_equal(
+		    bpf_map_update_elem(&WL_MAP, &k, &one, BPF_ANY), BPF_OK);
+	}
 
-        unsigned char buf[64] = {0};
-        struct xdp_md ctx = {.data = buf, .data_end = buf + sizeof(buf)};
-        buf[12] = 0x08;
-        buf[13] = 0x00;
-        __u32 ip = bpf_htonl(0x0a000001);
-        memcpy(buf + ETH_HLEN + 12, &ip, 4);
+	unsigned char buf[64] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+	buf[12]		      = 0x08;
+	buf[13]		      = 0x00;
+	__u32 ip	      = bpf_htonl(0x0a000001);
+	memcpy(buf + ETH_HLEN + 12, &ip, 4);
 
-        assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
+	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
 
-        __u8 flag = 1;
-        mock_map_value = &flag;
-        assert_int_equal(bpf_map_delete_elem(&WL_MAP, &k), BPF_OK);
-        xdp_wl_pass(&ctx);
-        assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
+	__u8 flag      = 1;
+	mock_map_value = &flag;
+	assert_int_equal(bpf_map_delete_elem(&WL_MAP, &k), BPF_OK);
+	xdp_wl_pass(&ctx);
+	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
 
-        k.addr.s6_addr32[0] = bpf_htonl(0x0a000041);
-        memcpy(buf + ETH_HLEN + 12, &k.addr.s6_addr32[0], 4);
-        assert_int_equal(bpf_map_update_elem(&WL_MAP, &k, &one, BPF_ANY),
-                         BPF_OK);
+	k.addr.s6_addr32[0] = bpf_htonl(0x0a000041);
+	memcpy(buf + ETH_HLEN + 12, &k.addr.s6_addr32[0], 4);
+	assert_int_equal(bpf_map_update_elem(&WL_MAP, &k, &one, BPF_ANY),
+			 BPF_OK);
 
-        assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
+	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
 }
 
 static void test_fastpath_counter(void** state)
 {
-       (void)state;
-       unsigned char buf[60] = {0};
-       struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+	(void)state;
+	unsigned char buf[60] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
-       buf[12] = 0x08;
-       buf[13] = 0x00;
-       buf[14] = 0x45;
-       buf[23] = 6;
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
 
-       __u64 cnt = 0;
-       use_seq         = 1;
-       mock_map_idx    = 0;
-       mock_map_seq[0] = &cnt; // path_stats fast
-       mock_map_seq[1] = NULL; // tcp_flow
-       mock_map_seq[2] = NULL; // udp_flow
-       mock_map_seq[3] = NULL; // tcp6_flow
-       mock_map_seq[4] = NULL; // udp6_flow
+	__u64 cnt	= 0;
+	use_seq		= 1;
+	mock_map_idx	= 0;
+	mock_map_seq[0] = &cnt; // path_stats fast
+	mock_map_seq[1] = NULL; // tcp_flow
+	mock_map_seq[2] = NULL; // udp_flow
+	mock_map_seq[3] = NULL; // tcp6_flow
+	mock_map_seq[4] = NULL; // udp6_flow
 
-       xdp_flow_fastpath(&ctx);
-       assert_int_equal(cnt, 1);
-       use_seq = 0;
+	xdp_flow_fastpath(&ctx);
+	assert_int_equal(cnt, 1);
+	use_seq = 0;
 }
 
 static void test_slowpath_counter(void** state)
 {
-       (void)state;
-       unsigned char buf[60] = {0};
-       struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+	(void)state;
+	unsigned char buf[60] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
-       buf[12] = 0x08;
-       buf[13] = 0x00;
-       buf[14] = 0x45;
-       buf[23] = 6;
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
 
-       __u64 cnt = 0;
-       use_seq         = 1;
-       mock_map_idx    = 0;
-       mock_map_seq[0] = &cnt; // path_stats slow
+	__u64 cnt	= 0;
+	use_seq		= 1;
+	mock_map_idx	= 0;
+	mock_map_seq[0] = &cnt; // path_stats slow
 
-       xdp_proto_dispatch(&ctx);
-       assert_int_equal(cnt, 1);
-       use_seq = 0;
+	xdp_proto_dispatch(&ctx);
+	assert_int_equal(cnt, 1);
+	use_seq = 0;
+}
+
+static void test_fastpath_tcp_fin_cleanup(void** state)
+{
+	(void)state;
+	unsigned char buf[80] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
+	buf[47] = 0x11; // FIN+ACK
+
+	__u64 cnt = 0, ts = 0;
+	use_seq		= 1;
+	mock_map_idx	= 0;
+	mock_map_seq[0] = &cnt; // path_stats
+	mock_map_seq[1] = &ts;	// tcp_flow hit
+	mock_map_seq[2] = NULL; // udp_flow
+	mock_map_seq[3] = NULL; // tcp6_flow
+	mock_map_seq[4] = NULL; // udp6_flow
+	tailcall_enable = 1;
+
+	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_PASS);
+	use_seq = 0;
+
+	unsigned char buf2[80] = {0};
+	struct xdp_md ctx2 = {.data = buf2, .data_end = buf2 + sizeof(buf2)};
+
+	buf2[12] = 0x08;
+	buf2[13] = 0x00;
+	buf2[14] = 0x45;
+	buf2[23] = 6;
+	buf2[47] = 0x10; // ACK
+
+	use_seq		= 1;
+	mock_map_idx	= 0;
+	mock_map_seq[0] = &cnt; // path_stats
+	mock_map_seq[1] = NULL; // tcp_flow miss
+	mock_map_seq[2] = NULL;
+	mock_map_seq[3] = NULL;
+	mock_map_seq[4] = NULL;
+
+	assert_int_equal(xdp_flow_fastpath(&ctx2), XDP_DROP);
+	use_seq = 0;
+}
+
+static void test_fastpath_miss_drop(void** state)
+{
+	(void)state;
+	unsigned char buf[60] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
+
+	__u64 cnt	= 0;
+	use_seq		= 1;
+	mock_map_idx	= 0;
+	mock_map_seq[0] = &cnt; // path_stats
+	mock_map_seq[1] = NULL; // tcp_flow miss
+	mock_map_seq[2] = NULL; // udp_flow miss
+	mock_map_seq[3] = NULL; // tcp6_flow miss
+	mock_map_seq[4] = NULL; // udp6_flow miss
+	tailcall_enable = 1;
+
+	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_DROP);
+	use_seq = 0;
+}
+
+static void test_udp_rl_tailcall_fail(void** state)
+{
+	(void)state;
+	unsigned char buf[80] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 17; // UDP
+
+	struct udp_meta m   = {.last_seen = 0, .tokens = 0};
+	__u64		cnt = 0;
+	use_seq		    = 1;
+	mock_map_idx	    = 0;
+	mock_map_seq[0]	    = &cnt; // path_stats
+	mock_map_seq[1]	    = NULL; // tcp_flow miss
+	mock_map_seq[2]	    = NULL; // udp_flow miss
+	mock_map_seq[3]	    = NULL; // tcp6_flow miss
+	mock_map_seq[4]	    = NULL; // udp6_flow miss
+	mock_map_seq[5]	    = &m;   // udp_rl
+	tailcall_enable	    = 0;    // emulate failure
+
+	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_DROP);
+	use_seq = 0;
 }
 
 int main(void)
@@ -777,12 +886,15 @@ int main(void)
 	    cmocka_unit_test(test_parse_l2_l3_ipv4),
 	    cmocka_unit_test(test_parse_l2_l3_ipv6),
 	    cmocka_unit_test(test_suricata_gate_bad_ipv6),
-            cmocka_unit_test(test_suricata_gate_bad_ipv4),
-            cmocka_unit_test(test_panic_flag_drop),
-            cmocka_unit_test(test_dynamic_wl),
-            cmocka_unit_test(test_fastpath_counter),
-            cmocka_unit_test(test_slowpath_counter),
-        };
+	    cmocka_unit_test(test_suricata_gate_bad_ipv4),
+	    cmocka_unit_test(test_panic_flag_drop),
+	    cmocka_unit_test(test_dynamic_wl),
+	    cmocka_unit_test(test_fastpath_counter),
+	    cmocka_unit_test(test_slowpath_counter),
+	    cmocka_unit_test(test_fastpath_tcp_fin_cleanup),
+	    cmocka_unit_test(test_fastpath_miss_drop),
+	    cmocka_unit_test(test_udp_rl_tailcall_fail),
+	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

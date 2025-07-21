@@ -184,66 +184,65 @@ static __always_inline __u32 idx_v6(const struct bypass_v6* k)
 	return h & (FLOW_TAB_SZ - 1);
 }
 
-
 static __always_inline void count_fast(void)
 {
-       __u32  k = FAST_CNT_IDX;
-       __u64* v = bpf_map_lookup_elem(&path_stats, &k);
+	__u32  k = FAST_CNT_IDX;
+	__u64* v = bpf_map_lookup_elem(&path_stats, &k);
 
-       if (v)
-               __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
+	if (v)
+		__atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
 }
 
 static __always_inline void count_slow(void)
 {
-       __u32  k = SLOW_CNT_IDX;
-       __u64* v = bpf_map_lookup_elem(&path_stats, &k);
+	__u32  k = SLOW_CNT_IDX;
+	__u64* v = bpf_map_lookup_elem(&path_stats, &k);
 
-       if (v)
-               __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
+	if (v)
+		__atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
 }
 
 /* Whitelist management helpers */
 static __always_inline void wl_add(const struct wl_v6_key* k)
 {
-        __u8 one = 1;
-        bpf_map_update_elem(&WL_MAP, k, &one, BPF_ANY);
+	__u8 one = 1;
+	bpf_map_update_elem(&WL_MAP, k, &one, BPF_ANY);
 }
 
 static __always_inline void wl_del(const struct wl_v6_key* k)
 {
-        bpf_map_delete_elem(&WL_MAP, k);
+	bpf_map_delete_elem(&WL_MAP, k);
 }
 
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
-        /* 1. Ethernet proto */
-        __u16 eth = 0;
-        if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
-                return XDP_DROP;
+	/* 1. Ethernet proto */
+	__u16 eth = 0;
+	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
+		return XDP_DROP;
 
-        bool v4 = eth == bpf_htons(ETH_P_IP);
-        bool v6 = eth == bpf_htons(ETH_P_IPV6);
+	bool v4 = eth == bpf_htons(ETH_P_IP);
+	bool v6 = eth == bpf_htons(ETH_P_IPV6);
 
-        /* 2. src address */
-        struct wl_v6_key k4 = {.family = AF_INET};
-        struct wl_v6_key k6 = {.family = AF_INET6};
-        if (v4)
-                bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k4.addr.s6_addr32, 4);
-        if (v6)
-                bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
+	/* 2. src address */
+	struct wl_v6_key k4 = {.family = AF_INET};
+	struct wl_v6_key k6 = {.family = AF_INET6};
+	if (v4)
+		bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k4.addr.s6_addr32, 4);
+	if (v6)
+		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
-        /* 3. lookup */
-        bool hit = (v4 && bpf_map_lookup_elem(&WL_MAP, &k4)) ||
-                   (v6 && bpf_map_lookup_elem(&WL_MAP, &k6));
+	/* 3. lookup */
+	bool hit = (v4 && bpf_map_lookup_elem(&WL_MAP, &k4)) ||
+		   (v6 && bpf_map_lookup_elem(&WL_MAP, &k6));
 
-        if (hit)
-                return XDP_PASS;
+	if (hit)
+		return XDP_PASS;
 
-        /* 4. miss -> panic */
-        bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
-        return XDP_PASS;
+	/* 4. miss -> panic */
+	bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
+	return XDP_PASS;
 }
 
 SEC("xdp")
@@ -440,7 +439,7 @@ static __always_inline void cleanup_fin_rst(struct xdp_md*   ctx,
 	bpf_map_delete_elem(&tcp6_flow, &k6);
 }
 
-static __always_inline void do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
+static __always_inline int do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
 {
 	__u8  hit4_tcp = f->hit_tcp_v4 * f->is_ipv4 * f->is_tcp;
 	__u8  hit4_udp = f->hit_udp_v4 * f->is_ipv4 * f->is_udp;
@@ -454,18 +453,22 @@ static __always_inline void do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
 	bpf_tail_call(ctx, &jmp_table, idx);
 	(void)ctx;
 	(void)idx;
+	return -1;
 }
 
 SEC("xdp")
 int xdp_flow_fastpath(struct xdp_md* ctx)
 {
-       count_fast();
-       struct flow_ctx f = {};
+	count_fast();
+	struct flow_ctx f = {};
 	parse_l2(ctx, &f);
 	parse_l3(ctx, &f);
 	build_keys(ctx, &f);
 	lookup_hits(&f);
 	cleanup_fin_rst(ctx, &f);
+	int rc = do_tailcall(ctx, &f); /* HIT -> TCP/UDP-state or SURICATA */
+	if (rc >= 0)
+		return rc;
 	__u32 drop = 0;
 	if (f.is_udp) {
 		struct rl_cfg  cfg = rl_cfg_get();
@@ -536,7 +539,8 @@ static __always_inline __u32 drop_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
 	__u32		  idx  = idx_v4(&k);
 	struct bypass_v4* v =
 	    bpf_map_lookup_percpu_elem(&flow_table_v4, &idx, 0);
-	return cond & match_bypass_ipv4(v, &k);
+	__u32 hit = match_bypass_ipv4(v, &k);
+	return cond & (hit ^ 1);
 }
 
 static __always_inline __u32 drop_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
@@ -547,7 +551,8 @@ static __always_inline __u32 drop_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
 	__u32		  idx  = idx_v6(&k);
 	struct bypass_v6* v =
 	    bpf_map_lookup_percpu_elem(&flow_table_v6, &idx, 0);
-	return cond & match_bypass_ipv6(v, &k);
+	__u32 hit = match_bypass_ipv6(v, &k);
+	return cond & (hit ^ 1);
 }
 
 SEC("xdp")
@@ -631,8 +636,8 @@ static __always_inline void update_flows(struct dispatch_ctx* d)
 SEC("xdp")
 int xdp_proto_dispatch(struct xdp_md* ctx)
 {
-       count_slow();
-       struct dispatch_ctx d = {};
+	count_slow();
+	struct dispatch_ctx d = {};
 
 	parse_l2_l3(ctx, &d);
 	build_keys_dispatch(ctx, &d);
