@@ -34,6 +34,14 @@ char _license[] SEC("license") = "GPL";
 #define TCP_STATE_IDX     8
 #define UDP_STATE_IDX     9
 #define SURICATA_IDX      6
+/* jmp_table layout: whitelist -> panic -> ACL -> blacklist -> flow -> dispatch
+ */
+#define WL_PASS_IDX       0
+#define PANIC_IDX         1
+#define ACL_IDX           2
+#define BL_IDX            3
+#define FLOW_IDX          4
+#define DISPATCH_IDX      5
 #define INVALID_IDX       255
 #define INVALID_PROTO     255
 #define TCP_IDLE_NS       (15ULL * 1000000000ULL)
@@ -122,6 +130,9 @@ struct dispatch_ctx {
 	struct flow_key	       key_v4;
 	struct ids_flow_v6_key key_v6;
 };
+static __always_inline struct rl_cfg rl_cfg_get(void);
+static __always_inline __u32	     token_bucket_update(struct udp_key* k,
+							 struct rl_cfg c, __u64 now);
 
 static __always_inline __u32 eq32(__u32 a, __u32 b)
 {
@@ -189,26 +200,20 @@ static __always_inline void* wl_lookup_v6(struct xdp_md* ctx)
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
-	__u32  k     = 0;
-	__u64* v     = NULL;
-	__u16  proto = 0;
+	__u16 proto = 0;
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2))
 		return XDP_DROP;
 
 	__u32 is_v4 = !(proto ^ bpf_htons(ETH_P_IP));
 	__u32 is_v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
 
-        __u32 hit4 = !!wl_lookup_v4(ctx);
-        __u32 hit6 = !!wl_lookup_v6(ctx);
+	__u32 hit4 = !!wl_lookup_v4(ctx);
+	__u32 hit6 = !!wl_lookup_v6(ctx);
 
-        if ((is_v4 & hit4) | (is_v6 & hit6))
-                return XDP_PASS;
+	if ((is_v4 & hit4) | (is_v6 & hit6))
+		return XDP_PASS;
 
-        v = bpf_map_lookup_elem(&wl_miss, &k);
-        if (v)
-                __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
-
-        return XDP_PASS;
+	return XDP_PASS;
 }
 
 SEC("xdp")
@@ -266,7 +271,7 @@ int xdp_acl_dport(struct xdp_md* ctx)
 	return (int)XDP_DROP + (int)allow;
 }
 
-static __always_inline __u32 is_priv4(__u32 ip)
+static __always_inline __u32 is_private_ipv4(__u32 ip)
 {
 	__u32 a =
 	    (__u32)((ip & bpf_htonl(0xff000000)) == bpf_htonl(0x0a000000));
@@ -279,7 +284,7 @@ static __always_inline __u32 is_priv4(__u32 ip)
 	return a | b | c | d;
 }
 
-static __always_inline __u32 drop_v4(struct xdp_md* ctx, __u16 proto)
+static __always_inline __u32 drop_ipv4(struct xdp_md* ctx, __u16 proto)
 {
 	if (proto != bpf_htons(ETH_P_IP))
 		return RET_OK;
@@ -288,11 +293,11 @@ static __always_inline __u32 drop_v4(struct xdp_md* ctx, __u16 proto)
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &ip, 4))
 		return RET_ERR;
 
-        __u32 bl = !!bpf_map_lookup_elem(&ipv4_drop, &ip);
-	return bl | is_priv4(ip);
+	__u32 bl = !!bpf_map_lookup_elem(&ipv4_drop, &ip);
+	return bl | is_private_ipv4(ip);
 }
 
-static __always_inline __u32 drop_v6(struct xdp_md* ctx, __u16 proto)
+static __always_inline __u32 drop_ipv6(struct xdp_md* ctx, __u16 proto)
 {
 	if (proto != bpf_htons(ETH_P_IPV6))
 		return RET_OK;
@@ -304,7 +309,7 @@ static __always_inline __u32 drop_v6(struct xdp_md* ctx, __u16 proto)
 	__u8* p	   = (__u8*)&k;
 	__u8  ula  = ((*p & 0xfeu) == 0xfcu);
 	__u8  llnk = (*p == 0xfeu) && ((p[1] & 0xc0u) == 0x80u);
-        __u32 bl   = !!bpf_map_lookup_elem(&ipv6_drop, &k);
+	__u32 bl   = !!bpf_map_lookup_elem(&ipv6_drop, &k);
 
 	return bl | ula | llnk;
 }
@@ -315,7 +320,7 @@ int xdp_blacklist(struct xdp_md* ctx)
 	__u16 proto = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
-	__u32 drop = drop_v4(ctx, proto) | drop_v6(ctx, proto);
+	__u32 drop = drop_ipv4(ctx, proto) | drop_ipv6(ctx, proto);
 
 	return drop ? XDP_DROP : XDP_PASS;
 }
@@ -430,11 +435,22 @@ int xdp_flow_fastpath(struct xdp_md* ctx)
 	build_keys(ctx, &f);
 	lookup_hits(&f);
 	cleanup_fin_rst(ctx, &f);
-	do_tailcall(ctx, &f);
-	return XDP_PASS;
+	__u32 drop = 0;
+	if (f.is_udp) {
+		struct rl_cfg  cfg = rl_cfg_get();
+		struct udp_key k   = {.is_v6 = f.is_ipv6};
+		__u32*	       ka  = (__u32*)&k.addr;
+		const __u32*   sa6 = (const __u32*)f.key_v6.saddr;
+		ka[0] = (f.key_v4.saddr & -f.is_ipv4) | (sa6[0] & -f.is_ipv6);
+		ka[1] = sa6[1] & -f.is_ipv6;
+		ka[2] = sa6[2] & -f.is_ipv6;
+		ka[3] = sa6[3] & -f.is_ipv6;
+		drop  = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
+	}
+	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
 }
 
-static __always_inline __u32 parse_v4(struct xdp_md* ctx, struct flow_key* k)
+static __always_inline __u32 parse_ipv4(struct xdp_md* ctx, struct flow_key* k)
 {
 	__u32 err = 0;
 	__u8  vhl = 0, l4 = 0;
@@ -449,7 +465,8 @@ static __always_inline __u32 parse_v4(struct xdp_md* ctx, struct flow_key* k)
 	return err;
 }
 
-static __always_inline __u32 parse_v6(struct xdp_md* ctx, struct bypass_v6* k6)
+static __always_inline __u32 parse_ipv6(struct xdp_md*	  ctx,
+					struct bypass_v6* k6)
 {
 	__u32 err = 0;
 	__u8  nh  = 0;
@@ -463,16 +480,16 @@ static __always_inline __u32 parse_v6(struct xdp_md* ctx, struct bypass_v6* k6)
 	return err;
 }
 
-static __always_inline int match_bypass_v4(const struct bypass_v4* v,
-					   const struct flow_key*  k)
+static __always_inline int match_bypass_ipv4(const struct bypass_v4* v,
+					     const struct flow_key*  k)
 {
 	return v && v->saddr == k->saddr && v->daddr == k->daddr &&
 	       v->sport == k->sport && v->dport == k->dport &&
 	       v->proto == k->proto;
 }
 
-static __always_inline int match_bypass_v6(const struct bypass_v6* v,
-					   const struct bypass_v6* k)
+static __always_inline int match_bypass_ipv6(const struct bypass_v6* v,
+					     const struct bypass_v6* k)
 {
 	return v && !__builtin_memcmp(v->saddr, k->saddr, 16) &&
 	       !__builtin_memcmp(v->daddr, k->daddr, 16) &&
@@ -480,32 +497,43 @@ static __always_inline int match_bypass_v6(const struct bypass_v6* v,
 	       v->proto == k->proto;
 }
 
+static __always_inline __u32 drop_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
+{
+	struct flow_key	  k    = {};
+	__u32		  ok   = !parse_ipv4(ctx, &k);
+	__u32		  cond = is_v4 & ok;
+	__u32		  idx  = idx_v4(&k);
+	struct bypass_v4* v =
+	    bpf_map_lookup_percpu_elem(&flow_table_v4, &idx, 0);
+	return cond & match_bypass_ipv4(v, &k);
+}
+
+static __always_inline __u32 drop_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
+{
+	struct bypass_v6  k    = {};
+	__u32		  ok   = !parse_ipv6(ctx, &k);
+	__u32		  cond = is_v6 & ok;
+	__u32		  idx  = idx_v6(&k);
+	struct bypass_v6* v =
+	    bpf_map_lookup_percpu_elem(&flow_table_v6, &idx, 0);
+	return cond & match_bypass_ipv6(v, &k);
+}
+
 SEC("xdp")
 int xdp_suricata_gate(struct xdp_md* ctx)
 {
-	__u32 err   = 0;
 	__u16 proto = 0;
-	LD(ETH_HLEN - 2, &proto);
+	__u32 drop  = 0;
 
-	struct flow_key k4 = {};
-	if (!(proto ^ bpf_htons(ETH_P_IP)) && !parse_v4(ctx, &k4)) {
-		__u32		  idx = idx_v4(&k4);
-		struct bypass_v4* v =
-		    bpf_map_lookup_percpu_elem(&flow_table_v4, &idx, 0);
-		if (match_bypass_v4(v, &k4))
-			return XDP_DROP;
-	}
+	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
-	struct bypass_v6 k6 = {};
-	if (!(proto ^ bpf_htons(ETH_P_IPV6)) && !parse_v6(ctx, &k6)) {
-		__u32		  idx = idx_v6(&k6);
-		struct bypass_v6* v6 =
-		    bpf_map_lookup_percpu_elem(&flow_table_v6, &idx, 0);
-		if (match_bypass_v6(v6, &k6))
-			return XDP_DROP;
-	}
+	__u32 v4 = !(proto ^ bpf_htons(ETH_P_IP));
+	__u32 v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
 
-	return XDP_PASS;
+	drop |= drop_ipv4_suricata(ctx, v4);
+	drop |= drop_ipv6_suricata(ctx, v6);
+
+	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
 }
 
 static __always_inline void parse_l2_l3(struct xdp_md*	     ctx,
@@ -696,7 +724,7 @@ static __always_inline void parse(struct xdp_md* ctx, struct pkt* p)
 	clr_in6(&p->sip6, p->v6);
 }
 
-static __always_inline struct rl_cfg cfg_get(void)
+static __always_inline struct rl_cfg rl_cfg_get(void)
 {
 	struct rl_cfg  d   = {.ns = DEF_NS, .br = DEF_BURST};
 	__u32	       idx = 0;
@@ -726,8 +754,8 @@ static __always_inline struct udp_meta meta_ensure(struct udp_key* k, __u32 br,
 	return m;
 }
 
-static __always_inline __u32 tb_update(struct udp_key* k, struct rl_cfg c,
-				       __u64 now)
+static __always_inline __u32 token_bucket_update(struct udp_key* k,
+						 struct rl_cfg c, __u64 now)
 {
 	struct udp_meta m	= meta_ensure(k, c.br, now);
 	__u64		idle	= now - m.last_seen;
@@ -750,7 +778,7 @@ int xdp_udp_state(struct xdp_md* ctx)
 {
 	struct pkt p = {};
 	parse(ctx, &p);
-	struct rl_cfg  cfg = cfg_get();
+	struct rl_cfg  cfg = rl_cfg_get();
 	struct udp_key k   = {};
 	k.is_v6		   = p.v6 != 0;
 	__u32*	     ka	   = (__u32*)&k.addr;
@@ -759,7 +787,7 @@ int xdp_udp_state(struct xdp_md* ctx)
 	ka[1]		   = sa[1] & p.v6;
 	ka[2]		   = sa[2] & p.v6;
 	ka[3]		   = sa[3] & p.v6;
-	__u32	     drop  = tb_update(&k, cfg, bpf_ktime_get_ns());
+	__u32	     drop  = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
 	__u32	     fire  = (p.udp != 0) & drop;
 	__s32	     dm	   = -((__s32)fire);
 	unsigned int act   = (XDP_DROP & dm) | (XDP_PASS & ~dm);

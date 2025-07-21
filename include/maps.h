@@ -74,14 +74,6 @@ struct panic_flag_map {
 };
 MAP_EXTERN struct panic_flag_map panic_flag MAP_SEC(".maps");
 
-/* Whitelist miss counter - percpu for no contention */
-struct wl_miss_map {
-	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-	__uint(max_entries, 1);
-	__type(key, __u32);
-	__type(value, __u64);
-};
-MAP_EXTERN struct wl_miss_map wl_miss MAP_SEC(".maps");
 
 /* Whitelist - optimized with zero seed */
 struct wl_map {
@@ -183,8 +175,6 @@ struct jmp_table_map {
 };
 struct panic_flag_map {
 };
-struct wl_miss_map {
-};
 struct wl_map {
 };
 struct ids_flow_v4_map {
@@ -209,7 +199,6 @@ struct udp6_flow_map {
 // Dummy map instances
 MAP_EXTERN struct jmp_table_map	    jmp_table;
 MAP_EXTERN struct panic_flag_map    panic_flag;
-MAP_EXTERN struct wl_miss_map	    wl_miss;
 MAP_EXTERN struct wl_map	    wl_map;
 MAP_EXTERN struct ids_flow_v4_map   flow_table_v4;
 MAP_EXTERN struct ids_flow_v6_map   flow_table_v6;
