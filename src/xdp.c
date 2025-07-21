@@ -289,8 +289,8 @@ static __always_inline __u32 drop_v4(struct xdp_md* ctx, __u16 proto)
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &ip, 4))
 		return RET_ERR;
 
-	__u32 bl = !!bpf_map_lookup_elem(&ip_blacklist, &ip);
-	return bl | is_priv4(ip);
+        __u32 bl = !!bpf_map_lookup_elem(&ipv4_drop, &ip);
+        return bl | is_priv4(ip);
 }
 
 static __always_inline __u32 drop_v6(struct xdp_md* ctx, __u16 proto)
@@ -305,7 +305,7 @@ static __always_inline __u32 drop_v6(struct xdp_md* ctx, __u16 proto)
 	__u8* p	   = (__u8*)&k;
 	__u8  ula  = ((*p & 0xfeu) == 0xfcu);
 	__u8  llnk = (*p == 0xfeu) && ((p[1] & 0xc0u) == 0x80u);
-	__u32 bl   = !!bpf_map_lookup_elem(&ip6_blacklist, &k);
+        __u32 bl   = !!bpf_map_lookup_elem(&ipv6_drop, &k);
 
 	return bl | ula | llnk;
 }

@@ -48,8 +48,8 @@ extern void*	     mock_default_map_value;
 extern void*	     mock_wl_value;
 extern void*	     mock_wl_miss_value;
 extern void*	     mock_acl_value;
-extern void*	     mock_ip4_bl_value;
-extern void*	     mock_ip6_bl_value;
+extern void*	     mock_ipv4_drop_value;
+extern void*	     mock_ipv6_drop_value;
 extern void*	     mock_flow_v4_value;
 extern void*	     mock_flow_v6_value;
 extern void*	     mock_global_bypass_value;
@@ -65,9 +65,9 @@ static inline void* bpf_map_lookup_elem(void* map, const void* key) // NOLINT
 	if (map == &acl_ports)
 		return mock_acl_value;
 	if (map == &ipv4_drop)
-		return mock_ip4_bl_value;
+		return mock_ipv4_drop_value;
 	if (map == &ipv6_drop)
-		return mock_ip6_bl_value;
+		return mock_ipv6_drop_value;
 	if (map == &flow_table_v4)
 		return mock_flow_v4_value;
 	if (map == &flow_table_v6)
