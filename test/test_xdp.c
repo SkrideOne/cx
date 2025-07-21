@@ -4,10 +4,12 @@
 // SPDX-License-Identifier: GPL-2.0
 
 // Test environment - we don't include vmlinux.h in tests
-#include <cmocka.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
+// clang-format off
+#include <cmocka.h>
+// clang-format on
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

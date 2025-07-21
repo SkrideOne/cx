@@ -466,9 +466,7 @@ int xdp_flow_fastpath(struct xdp_md* ctx)
 	build_keys(ctx, &f);
 	lookup_hits(&f);
 	cleanup_fin_rst(ctx, &f);
-	int rc = do_tailcall(ctx, &f); /* HIT -> TCP/UDP-state or SURICATA */
-	if (rc >= 0)
-		return rc;
+	do_tailcall(ctx, &f); /* HIT -> TCP/UDP-state or SURICATA */
 	__u32 drop = 0;
 	if (f.is_udp) {
 		struct rl_cfg  cfg = rl_cfg_get();
