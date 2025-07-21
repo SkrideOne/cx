@@ -159,12 +159,21 @@ struct tcp6_flow_map {
 MAP_EXTERN struct tcp6_flow_map tcp6_flow MAP_SEC(".maps");
 
 struct udp6_flow_map {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__uint(max_entries, 1024);
-	__type(key, struct ids_flow_v6_key);
-	__type(value, __u64);
+        __uint(type, BPF_MAP_TYPE_LRU_HASH);
+        __uint(max_entries, 1024);
+        __type(key, struct ids_flow_v6_key);
+        __type(value, __u64);
 };
 MAP_EXTERN struct udp6_flow_map udp6_flow MAP_SEC(".maps");
+
+/* Fast/slow path counters */
+struct path_stats_map {
+       __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+       __uint(max_entries, 2);
+       __type(key, __u32);
+       __type(value, __u64);
+};
+MAP_EXTERN struct path_stats_map path_stats MAP_SEC(".maps");
 
 #else  // TEST_BUILD
 
@@ -209,6 +218,8 @@ MAP_EXTERN struct tcp_flow_map	    tcp_flow;
 MAP_EXTERN struct udp_flow_map	    udp_flow;
 MAP_EXTERN struct tcp6_flow_map	    tcp6_flow;
 MAP_EXTERN struct udp6_flow_map	    udp6_flow;
+struct path_stats_map {};
+MAP_EXTERN struct path_stats_map path_stats;
 
 #endif // TEST_BUILD
 

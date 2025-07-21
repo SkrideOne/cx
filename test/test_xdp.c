@@ -4,12 +4,13 @@
 // SPDX-License-Identifier: GPL-2.0
 
 // Test environment - we don't include vmlinux.h in tests
-#include <cmocka.h>
 #include <setjmp.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <cmocka.h>
 
 // Basic type definitions for tests
 typedef uint8_t	 __u8;
@@ -602,8 +603,54 @@ static void test_panic_flag_drop(void** state)
 	mock_map_seq[2] = &flag; // panic_flag
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
-	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
-	use_seq = 0;
+       assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
+       use_seq = 0;
+}
+
+static void test_fastpath_counter(void** state)
+{
+       (void)state;
+       unsigned char buf[60] = {0};
+       struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+       buf[12] = 0x08;
+       buf[13] = 0x00;
+       buf[14] = 0x45;
+       buf[23] = 6;
+
+       __u64 cnt = 0;
+       use_seq         = 1;
+       mock_map_idx    = 0;
+       mock_map_seq[0] = &cnt; // path_stats fast
+       mock_map_seq[1] = NULL; // tcp_flow
+       mock_map_seq[2] = NULL; // udp_flow
+       mock_map_seq[3] = NULL; // tcp6_flow
+       mock_map_seq[4] = NULL; // udp6_flow
+
+       xdp_flow_fastpath(&ctx);
+       assert_int_equal(cnt, 1);
+       use_seq = 0;
+}
+
+static void test_slowpath_counter(void** state)
+{
+       (void)state;
+       unsigned char buf[60] = {0};
+       struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+       buf[12] = 0x08;
+       buf[13] = 0x00;
+       buf[14] = 0x45;
+       buf[23] = 6;
+
+       __u64 cnt = 0;
+       use_seq         = 1;
+       mock_map_idx    = 0;
+       mock_map_seq[0] = &cnt; // path_stats slow
+
+       xdp_proto_dispatch(&ctx);
+       assert_int_equal(cnt, 1);
+       use_seq = 0;
 }
 
 int main(void)
@@ -634,9 +681,11 @@ int main(void)
 	    cmocka_unit_test(test_parse_l2_l3_ipv4),
 	    cmocka_unit_test(test_parse_l2_l3_ipv6),
 	    cmocka_unit_test(test_suricata_gate_bad_ipv6),
-	    cmocka_unit_test(test_suricata_gate_bad_ipv4),
-	    cmocka_unit_test(test_panic_flag_drop),
-	};
+            cmocka_unit_test(test_suricata_gate_bad_ipv4),
+            cmocka_unit_test(test_panic_flag_drop),
+            cmocka_unit_test(test_fastpath_counter),
+            cmocka_unit_test(test_slowpath_counter),
+        };
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -42,6 +42,8 @@ char _license[] SEC("license") = "GPL";
 #define BL_IDX            3
 #define FLOW_IDX          4
 #define DISPATCH_IDX      5
+#define FAST_CNT_IDX      0
+#define SLOW_CNT_IDX      1
 #define INVALID_IDX       255
 #define INVALID_PROTO     255
 #define TCP_IDLE_NS       (15ULL * 1000000000ULL)
@@ -191,10 +193,28 @@ static __always_inline void* wl_lookup_v4(struct xdp_md* ctx)
 
 static __always_inline void* wl_lookup_v6(struct xdp_md* ctx)
 {
-	struct wl_u_key k = {.family = AF_INET6};
-	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, k.addr, 16))
-		return NULL;
-	return bpf_map_lookup_elem(&wl_map, &k);
+        struct wl_u_key k = {.family = AF_INET6};
+        if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, k.addr, 16))
+                return NULL;
+        return bpf_map_lookup_elem(&wl_map, &k);
+}
+
+static __always_inline void count_fast(void)
+{
+       __u32  k = FAST_CNT_IDX;
+       __u64* v = bpf_map_lookup_elem(&path_stats, &k);
+
+       if (v)
+               __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
+}
+
+static __always_inline void count_slow(void)
+{
+       __u32  k = SLOW_CNT_IDX;
+       __u64* v = bpf_map_lookup_elem(&path_stats, &k);
+
+       if (v)
+               __atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
 }
 
 SEC("xdp")
@@ -429,7 +449,8 @@ static __always_inline void do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
 SEC("xdp")
 int xdp_flow_fastpath(struct xdp_md* ctx)
 {
-	struct flow_ctx f = {};
+       count_fast();
+       struct flow_ctx f = {};
 	parse_l2(ctx, &f);
 	parse_l3(ctx, &f);
 	build_keys(ctx, &f);
@@ -600,7 +621,8 @@ static __always_inline void update_flows(struct dispatch_ctx* d)
 SEC("xdp")
 int xdp_proto_dispatch(struct xdp_md* ctx)
 {
-	struct dispatch_ctx d = {};
+       count_slow();
+       struct dispatch_ctx d = {};
 
 	parse_l2_l3(ctx, &d);
 	build_keys_dispatch(ctx, &d);
