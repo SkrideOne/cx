@@ -49,7 +49,7 @@ struct ip6_key {
 	__u8 addr[16];
 };
 
-struct flow_v6_key {
+struct ids_flow_v6_key {
 	__u8  saddr[16], daddr[16];
 	__u16 sport, dport;
 	__u8  proto;
@@ -74,15 +74,6 @@ struct panic_flag_map {
 };
 MAP_EXTERN struct panic_flag_map panic_flag MAP_SEC(".maps");
 
-/* Global bypass switch */
-struct global_bypass_map {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__uint(max_entries, 1);
-	__type(key, __u32);
-	__type(value, __u8);
-};
-MAP_EXTERN struct global_bypass_map global_bypass MAP_SEC(".maps");
-
 /* Whitelist miss counter - percpu for no contention */
 struct wl_miss_map {
 	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
@@ -105,23 +96,23 @@ MAP_EXTERN struct wl_map wl_map MAP_SEC(".maps");
 
 /* Flow tables - percpu arrays for speed */
 
-struct flow_table_v4_map {
+struct ids_flow_v4_map {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__uint(max_entries, FLOW_TAB_SZ);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__type(key, __u32);
 	__type(value, struct bypass_v4);
 };
-MAP_EXTERN struct flow_table_v4_map flow_table_v4 MAP_SEC(".maps");
+MAP_EXTERN struct ids_flow_v4_map flow_table_v4 MAP_SEC(".maps");
 
-struct flow_table_v6_map {
+struct ids_flow_v6_map {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__uint(max_entries, FLOW_TAB_SZ);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__type(key, __u32);
 	__type(value, struct bypass_v6);
 };
-MAP_EXTERN struct flow_table_v6_map flow_table_v6 MAP_SEC(".maps");
+MAP_EXTERN struct ids_flow_v6_map flow_table_v6 MAP_SEC(".maps");
 
 /* ACL ports */
 struct acl_port_map {
@@ -135,18 +126,18 @@ MAP_EXTERN struct acl_port_map acl_ports MAP_SEC(".maps");
 
 /* Blacklists */
 struct ipv4_drop_map {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 4096);
-	__type(key, __u32);
-	__type(value, __u8);
+        __uint(type, BPF_MAP_TYPE_HASH);
+        __uint(max_entries, 4096);
+        __type(key, __u32);
+        __type(value, __u8);
 };
 MAP_EXTERN struct ipv4_drop_map ipv4_drop MAP_SEC(".maps");
 
 struct ipv6_drop_map {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 4096);
-	__type(key, struct ip6_key);
-	__type(value, __u8);
+        __uint(type, BPF_MAP_TYPE_HASH);
+        __uint(max_entries, 4096);
+        __type(key, struct ip6_key);
+        __type(value, __u8);
 };
 MAP_EXTERN struct ipv6_drop_map ipv6_drop MAP_SEC(".maps");
 
@@ -170,7 +161,7 @@ MAP_EXTERN struct udp_flow_map udp_flow MAP_SEC(".maps");
 struct tcp6_flow_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__uint(max_entries, 32768);
-	__type(key, struct flow_v6_key);
+	__type(key, struct ids_flow_v6_key);
 	__type(value, __u64);
 };
 MAP_EXTERN struct tcp6_flow_map tcp6_flow MAP_SEC(".maps");
@@ -178,7 +169,7 @@ MAP_EXTERN struct tcp6_flow_map tcp6_flow MAP_SEC(".maps");
 struct udp6_flow_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__uint(max_entries, 1024);
-	__type(key, struct flow_v6_key);
+	__type(key, struct ids_flow_v6_key);
 	__type(value, __u64);
 };
 MAP_EXTERN struct udp6_flow_map udp6_flow MAP_SEC(".maps");
@@ -196,9 +187,9 @@ struct wl_miss_map {
 };
 struct wl_map {
 };
-struct flow_table_v4_map {
+struct ids_flow_v4_map {
 };
-struct flow_table_v6_map {
+struct ids_flow_v6_map {
 };
 struct acl_port_map {
 };
@@ -214,22 +205,19 @@ struct tcp6_flow_map {
 };
 struct udp6_flow_map {
 };
-struct global_bypass_map {
-};
 
 // Dummy map instances
 MAP_EXTERN struct jmp_table_map	    jmp_table;
 MAP_EXTERN struct panic_flag_map    panic_flag;
 MAP_EXTERN struct wl_miss_map	    wl_miss;
 MAP_EXTERN struct wl_map	    wl_map;
-MAP_EXTERN struct flow_table_v4_map flow_table_v4;
-MAP_EXTERN struct flow_table_v6_map flow_table_v6;
+MAP_EXTERN struct ids_flow_v4_map   flow_table_v4;
+MAP_EXTERN struct ids_flow_v6_map   flow_table_v6;
 MAP_EXTERN struct acl_port_map	    acl_ports;
-MAP_EXTERN struct ipv4_drop_map	    ipv4_drop;
-MAP_EXTERN struct ipv6_drop_map	    ipv6_drop;
+MAP_EXTERN struct ipv4_drop_map  ipv4_drop;
+MAP_EXTERN struct ipv6_drop_map ipv6_drop;
 MAP_EXTERN struct tcp_flow_map	    tcp_flow;
 MAP_EXTERN struct udp_flow_map	    udp_flow;
-MAP_EXTERN struct global_bypass_map global_bypass;
 MAP_EXTERN struct tcp6_flow_map	    tcp6_flow;
 MAP_EXTERN struct udp6_flow_map	    udp6_flow;
 

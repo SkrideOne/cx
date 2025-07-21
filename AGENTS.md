@@ -176,16 +176,6 @@ Return **one** Markdown document containing:
 
 Store chunk embeddings and summaries in memory so that the subsequent language‑specific layer can retrieve relevant chunks via similarity search.
 
-### ENVIRONMENT SETUP
-
-Install build tools and analysis utilities on first run:
-
-```bash
-sudo apt-get update -y
-sudo apt-get install -y clang clang-tidy clang-format gcc make libc6-dev
-pip install --break-system-packages -q lizard cmake gcovr
-```
-
 ---
 
 ## REPOSITORY NOTE

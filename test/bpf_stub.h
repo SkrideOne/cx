@@ -44,49 +44,24 @@ static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 	return BPF_OK;
 }
 
-extern void*	     mock_default_map_value;
-extern void*	     mock_wl_value;
-extern void*	     mock_wl_miss_value;
-extern void*	     mock_acl_value;
-extern void*	     mock_ipv4_drop_value;
-extern void*	     mock_ipv6_drop_value;
-extern void*	     mock_flow_v4_value;
-extern void*	     mock_flow_v6_value;
-extern void*	     mock_global_bypass_value;
+extern void*	     mock_map_value;
 static unsigned char mock_storage[64];
 
 static inline void* bpf_map_lookup_elem(void* map, const void* key) // NOLINT
 {
+	(void)map;
 	(void)key;
-	if (map == &wl_map)
-		return mock_wl_value;
-	if (map == &wl_miss)
-		return mock_wl_miss_value;
-	if (map == &acl_ports)
-		return mock_acl_value;
-	if (map == &ipv4_drop)
-		return mock_ipv4_drop_value;
-	if (map == &ipv6_drop)
-		return mock_ipv6_drop_value;
-	if (map == &flow_table_v4)
-		return mock_flow_v4_value;
-	if (map == &flow_table_v6)
-		return mock_flow_v6_value;
-	if (map == &global_bypass)
-		return mock_global_bypass_value;
-	return mock_default_map_value;
+	return mock_map_value;
 }
 
 static inline long bpf_map_update_elem(void* map, const void* key,
 				       const void* val, __u64 flags) // NOLINT
 {
+	(void)map;
 	(void)key;
 	(void)flags;
 	memcpy(mock_storage, val, sizeof(mock_storage));
-	if (map == &wl_miss)
-		mock_wl_miss_value = mock_storage;
-	else
-		mock_default_map_value = mock_storage;
+	mock_map_value = mock_storage;
 	return BPF_OK;
 }
 static inline long bpf_map_delete_elem(void* map, const void* key) // NOLINT
@@ -98,12 +73,9 @@ static inline long bpf_map_delete_elem(void* map, const void* key) // NOLINT
 static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
 					       __u32 cpu) // NOLINT
 {
-	(void)cpu;
+	(void)map;
 	(void)key;
-	if (map == &flow_table_v4)
-		return mock_flow_v4_value;
-	if (map == &flow_table_v6)
-		return mock_flow_v6_value;
+	(void)cpu;
 	return NULL;
 }
 
