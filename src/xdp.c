@@ -3,6 +3,7 @@
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 #endif
+#include <stdbool.h>
 
 // Purpose: XDP packet filtering logic
 // Pipeline: clang-format > clang-tidy > custom lint > build > test
@@ -183,21 +184,6 @@ static __always_inline __u32 idx_v6(const struct bypass_v6* k)
 	return h & (FLOW_TAB_SZ - 1);
 }
 
-static __always_inline void* wl_lookup_v4(struct xdp_md* ctx)
-{
-	struct wl_u_key k = {.family = AF_INET};
-	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k.addr, 4))
-		return NULL;
-	return bpf_map_lookup_elem(&wl_map, &k);
-}
-
-static __always_inline void* wl_lookup_v6(struct xdp_md* ctx)
-{
-        struct wl_u_key k = {.family = AF_INET6};
-        if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, k.addr, 16))
-                return NULL;
-        return bpf_map_lookup_elem(&wl_map, &k);
-}
 
 static __always_inline void count_fast(void)
 {
@@ -220,20 +206,32 @@ static __always_inline void count_slow(void)
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
-	__u16 proto = 0;
-	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2))
-		return XDP_DROP;
+        /* 1. Ethernet proto */
+        __u16 eth = 0;
+        if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
+                return XDP_DROP;
 
-	__u32 is_v4 = !(proto ^ bpf_htons(ETH_P_IP));
-	__u32 is_v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
+        bool v4 = eth == bpf_htons(ETH_P_IP);
+        bool v6 = eth == bpf_htons(ETH_P_IPV6);
 
-	__u32 hit4 = !!wl_lookup_v4(ctx);
-	__u32 hit6 = !!wl_lookup_v6(ctx);
+        /* 2. src address */
+        __u32          src4 = 0;
+        struct in6_addr src6 = {};
+        if (v4)
+                bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &src4, 4);
+        if (v6)
+                bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &src6, 16);
 
-	if ((is_v4 & hit4) | (is_v6 & hit6))
-		return XDP_PASS;
+        /* 3. lookup */
+        bool hit = (v4 && bpf_map_lookup_elem(&wl_map, &src4)) ||
+                   (v6 && bpf_map_lookup_elem(&wl_map, &src6));
 
-	return XDP_PASS;
+        if (hit)
+                return XDP_PASS;
+
+        /* 4. miss -> panic */
+        bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
+        return XDP_PASS;
 }
 
 SEC("xdp")

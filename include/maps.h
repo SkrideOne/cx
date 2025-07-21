@@ -21,9 +21,12 @@
 #define FLOW_TAB_SZ 65536
 
 /* Core structures - cache-aligned */
-struct wl_u_key {
-	__u32 family;
-	__u8  addr[16];
+
+/* Whitelist IPv6 key */
+struct wl_v6_key {
+        __u8            family;
+        __u8            pad[3];
+        struct in6_addr addr;
 } __attribute__((aligned(64)));
 
 struct flow_key {
@@ -75,14 +78,13 @@ struct panic_flag_map {
 MAP_EXTERN struct panic_flag_map panic_flag MAP_SEC(".maps");
 
 
-/* Whitelist - optimized with zero seed */
+/* Whitelist - LRU for auto-eviction */
 struct wl_map {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 64);
-	__uint(map_flags,
-	       BPF_F_RDONLY_PROG | BPF_F_NO_PREALLOC | BPF_F_ZERO_SEED);
-	__type(key, struct wl_u_key);
-	__type(value, __u8);
+        __uint(type, BPF_MAP_TYPE_LRU_HASH);
+        __uint(max_entries, 64);
+        __uint(map_flags, BPF_F_RDONLY_PROG | BPF_F_ZERO_SEED);
+        __type(key, struct wl_v6_key);
+        __type(value, __u8);
 };
 MAP_EXTERN struct wl_map wl_map MAP_SEC(".maps");
 

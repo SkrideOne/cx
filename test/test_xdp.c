@@ -354,11 +354,10 @@ static void test_xdp_wl_pass_hit(void** state)
 	__u8 val	= 1;
 	use_seq		= 1;
 	mock_map_idx	= 0;
-	mock_map_seq[0] = &val; // wl_lookup_v4
-	mock_map_seq[1] = NULL; // wl_lookup_v6
+        mock_map_seq[0] = &val; // whitelist hit
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
-	assert_int_equal(mock_map_idx, 2);
+	assert_int_equal(mock_map_idx, 1);
 	use_seq = 0;
 }
 
@@ -598,9 +597,8 @@ static void test_panic_flag_drop(void** state)
 	__u8 flag	= 1;
 	use_seq		= 1;
 	mock_map_idx	= 0;
-	mock_map_seq[0] = NULL;	 // wl_lookup_v4
-	mock_map_seq[1] = NULL;	 // wl_lookup_v6
-	mock_map_seq[2] = &flag; // panic_flag
+        mock_map_seq[0] = NULL;  // whitelist miss
+	mock_map_seq[1] = &flag; // panic_flag
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
        assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
