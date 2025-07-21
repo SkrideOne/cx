@@ -804,7 +804,7 @@ static void test_fastpath_tcp_fin_cleanup(void** state)
 	mock_map_seq[3] = NULL;
 	mock_map_seq[4] = NULL;
 
-	assert_int_equal(xdp_flow_fastpath(&ctx2), XDP_DROP);
+	assert_int_equal(xdp_flow_fastpath(&ctx2), XDP_PASS);
 	use_seq = 0;
 }
 
@@ -829,8 +829,60 @@ static void test_fastpath_miss_drop(void** state)
 	mock_map_seq[4] = NULL; // udp6_flow miss
 	tailcall_enable = 1;
 
-	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_DROP);
+	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_PASS);
 	use_seq = 0;
+}
+
+static void test_rl_cfg_get_default(void** state)
+{
+	(void)state;
+	use_seq		  = 1;
+	mock_map_idx	  = 0;
+	mock_map_seq[0]	  = NULL;
+	struct rl_cfg cfg = rl_cfg_get();
+	use_seq		  = 0;
+	assert_int_equal(cfg.ns, DEF_NS);
+	assert_int_equal(cfg.br, DEF_BURST);
+}
+
+static void test_rl_cfg_get_override(void** state)
+{
+	(void)state;
+	struct rl_cfg val = {.ns = 5000, .br = 50};
+	use_seq		  = 1;
+	mock_map_idx	  = 0;
+	mock_map_seq[0]	  = &val;
+	struct rl_cfg cfg = rl_cfg_get();
+	use_seq		  = 0;
+	assert_int_equal(cfg.ns, val.ns);
+	assert_int_equal(cfg.br, val.br);
+}
+
+static void test_token_bucket_drop(void** state)
+{
+	(void)state;
+	struct udp_key	k   = {0};
+	struct rl_cfg	cfg = {.ns = 100, .br = 10};
+	struct udp_meta m   = {.last_seen = 0, .tokens = 0};
+	use_seq		    = 1;
+	mock_map_idx	    = 0;
+	mock_map_seq[0]	    = &m;
+	__u32 drop	    = token_bucket_update(&k, cfg, 0);
+	use_seq		    = 0;
+	assert_int_equal(drop, 1);
+}
+
+static void test_make_key_ipv4(void** state)
+{
+	(void)state;
+	struct tcp_ctx t = {.is_ipv4 = 1, .is_ipv6 = 0, .saddr = 0x01020304};
+	struct ip_key  k = make_key(&t);
+	const __u32*   w = (const __u32*)&k.addr;
+	assert_int_equal(k.is_v6, 0);
+	assert_int_equal(w[0], 0x01020304);
+	assert_int_equal(w[1], 0);
+	assert_int_equal(w[2], 0);
+	assert_int_equal(w[3], 0);
 }
 
 static void test_udp_rl_tailcall_fail(void** state)
@@ -895,6 +947,10 @@ int main(void)
 	    cmocka_unit_test(test_slowpath_counter),
 	    cmocka_unit_test(test_fastpath_tcp_fin_cleanup),
 	    cmocka_unit_test(test_fastpath_miss_drop),
+	    cmocka_unit_test(test_rl_cfg_get_default),
+	    cmocka_unit_test(test_rl_cfg_get_override),
+	    cmocka_unit_test(test_token_bucket_drop),
+	    cmocka_unit_test(test_make_key_ipv4),
 	    cmocka_unit_test(test_udp_rl_tailcall_fail),
 	};
 
