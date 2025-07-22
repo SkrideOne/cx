@@ -245,11 +245,18 @@ static inline __u32 bpf_ntohl(__u32 x)
         }                                                                    \
     } while (0)
 #define __atomic_fetch_add(ptr, val, order) ({ \
-	__typeof__(*(ptr)) old = *(ptr); \
-	*(ptr) += (val); \
-	old; \
+        __typeof__(*(ptr)) old = *(ptr); \
+        *(ptr) += (val); \
+        old; \
 })
 #define __ATOMIC_RELAXED 0
+
+static inline void bpf_prefetch(const void* p, __u32 a, __u32 b)
+{
+	(void)p;
+	(void)a;
+	(void)b;
+}
 
 // Now include the XDP source with TEST_BUILD defined
 #include "../src/xdp.c"
@@ -509,10 +516,10 @@ static void test_xdp_acl_ipv4_allowed(void** state)
 	buf[14] = 0x45;
 	buf[23] = 6;	// TCP
 	buf[36] = 0x00;
-	buf[37] = 0x50; // dport 80
+	buf[37] = 22;	// dport 22
 
-	int allow      = 1;
-	mock_map_value = &allow;
+	__u64 mask     = 1ull << 22;
+	mock_map_value = &mask;
 	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
 }
 
@@ -526,11 +533,11 @@ static void test_xdp_acl_ipv6_allowed(void** state)
 	buf[13] = 0xdd; // IPv6
 	buf[14] = 0x60;
 	buf[20] = 17;	// UDP
-	buf[54] = 0x00;
-	buf[55] = 0x35; // dport 53
+	buf[56] = 0x00;
+	buf[57] = 0x35; // dport 53
 
-	int allow      = 1;
-	mock_map_value = &allow;
+	__u64 mask     = 1ull << 53;
+	mock_map_value = &mask;
 	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
 }
 
@@ -545,7 +552,7 @@ static void test_xdp_acl_ipv4_denied(void** state)
 	buf[14] = 0x45;
 	buf[23] = 6;
 	buf[36] = 0x01;
-	buf[37] = 0xbb; // dport 443
+	buf[37] = 62; // dport 62
 
 	mock_map_value = NULL;
 	assert_int_equal(xdp_acl(&ctx), XDP_DROP);
@@ -561,8 +568,8 @@ static void test_xdp_acl_ipv6_denied(void** state)
 	buf[13] = 0xdd; // IPv6
 	buf[14] = 0x60;
 	buf[20] = 17;
-	buf[54] = 0x12;
-	buf[55] = 0x34; // dport 0x1234
+	buf[56] = 0x00;
+	buf[57] = 60; // dport 60
 
 	mock_map_value = NULL;
 	assert_int_equal(xdp_acl(&ctx), XDP_DROP);
@@ -581,8 +588,8 @@ static void test_xdp_acl_icmpv4_allowed(void** state)
 	buf[34] = 11; // type
 	buf[35] = 0;  // code
 
-	int allow      = 1;
-	mock_map_value = &allow;
+	__u64 mask     = 0;
+	mock_map_value = &mask;
 	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
 }
 
@@ -616,8 +623,8 @@ static void test_xdp_acl_icmpv6_allowed(void** state)
 	buf[54] = 2; // type
 	buf[55] = 0; // code
 
-	int allow      = 1;
-	mock_map_value = &allow;
+	__u64 mask6    = 1ull << 53;
+	mock_map_value = &mask6;
 	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
 }
 
@@ -683,11 +690,11 @@ static void test_allow_l4_port_allowed(void** state)
 	buf4[14] = 0x45;
 	buf4[23] = PROTO_TCP;
 	buf4[36] = 0x00;
-	buf4[37] = 0x50; // port 80
+	buf4[37] = 22; // port 22
 
-	int allow      = 1;
-	mock_map_value = &allow;
-	assert_int_equal(allow_ipv4(PROTO_TCP, 80), 1);
+	__u64 mask     = 1ull << 22;
+	mock_map_value = &mask;
+	assert_int_equal(allow_ipv4(PROTO_TCP, 22), 1);
 
 	unsigned char buf6[100] = {0};
 	struct xdp_md ctx6 = {.data = buf6, .data_end = buf6 + sizeof(buf6)};
@@ -696,10 +703,11 @@ static void test_allow_l4_port_allowed(void** state)
 	buf6[13] = 0xdd; // IPv6
 	buf6[14] = 0x60;
 	buf6[20] = PROTO_UDP;
-	buf6[54] = 0x00;
-	buf6[55] = 0x35; // port 53
+	buf6[56] = 0x00;
+	buf6[57] = 0x35; // port 53
 
-	mock_map_value = &allow;
+	__u64 mask6    = 1ull << 53;
+	mock_map_value = &mask6;
 	assert_int_equal(allow_ipv6(PROTO_UDP, 53), 1);
 }
 
@@ -714,10 +722,10 @@ static void test_allow_l4_port_denied(void** state)
 	buf4[14] = 0x45;
 	buf4[23] = PROTO_TCP;
 	buf4[36] = 0x01;
-	buf4[37] = 0xbb; // port 443
+	buf4[37] = 62; // port 62
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv4(PROTO_TCP, 443), 0);
+	assert_int_equal(allow_ipv4(PROTO_TCP, 62), 0);
 
 	unsigned char buf6[100] = {0};
 	struct xdp_md ctx6 = {.data = buf6, .data_end = buf6 + sizeof(buf6)};
@@ -726,11 +734,11 @@ static void test_allow_l4_port_denied(void** state)
 	buf6[13] = 0xdd; // IPv6
 	buf6[14] = 0x60;
 	buf6[20] = PROTO_UDP;
-	buf6[54] = 0x12;
-	buf6[55] = 0x34; // port 0x1234
+	buf6[56] = 0x00;
+	buf6[57] = 60; // port 60
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv6(PROTO_UDP, 0x1234), 0);
+	assert_int_equal(allow_ipv6(PROTO_UDP, 60), 0);
 }
 
 static void test_xdp_blacklist_ipv4_private(void** state)

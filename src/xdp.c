@@ -62,8 +62,8 @@ struct ip_key {
 } __attribute__((aligned(64)));
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
-	__uint(max_entries, 16384);
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 128);
 	__type(key, struct ip_key);
 	__type(value, struct rate_limit);
 } tcp_rate SEC(".maps");
@@ -100,9 +100,8 @@ struct {
 } cfg_map SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
-	__uint(max_entries, 65536);
-	__uint(map_flags, BPF_F_NO_COMMON_LRU);
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 128);
 	__type(key, struct udp_key);
 	__type(value, struct udp_meta);
 } udp_rl SEC(".maps");
@@ -201,6 +200,7 @@ static __always_inline void count_slow(void)
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
+	bpf_prefetch(ctx->data + ETH_HLEN, 0, 0);
 	/* 1. Ethernet proto */
 	__u16 eth = 0;
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
@@ -225,10 +225,11 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &p6, 1);
 	bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 
-	__u8  l4      = (p4 & -v4) | (p6 & -v6);
-	__u32 is_icmp = (v4 & !(l4 ^ PROTO_ICMP)) | (v6 & !(l4 ^ PROTO_ICMP6));
-	__u32 ihl     = (vhl & 0x0Fu) << 2;
-	__u32 off     = ETH_HLEN + (ihl & -v4) + (IPV6_HDR_LEN & -v6);
+	__u8  l4 = (p4 & v4) | (p6 & v6);
+	__u32 is_icmp =
+	    (v4 & eq32(l4, PROTO_ICMP)) | (v6 & eq32(l4, PROTO_ICMP6));
+	__u32 ihl = (vhl & 0x0Fu) << 2;
+	__u32 off = ETH_HLEN + (ihl & v4) + (IPV6_HDR_LEN & v6);
 	bpf_xdp_load_bytes(ctx, off, &type, 1);
 
 	__u32 echo4 = v4 & (!(type ^ 8) | !(type ^ 0));
@@ -252,7 +253,11 @@ int xdp_panic_flag(struct xdp_md* ctx)
 
 static __always_inline __u32 port_allowed(__u16 dp)
 {
-	return !!bpf_map_lookup_elem(&acl_ports, &dp);
+	__u32	     key  = 0;
+	const __u64* mask = bpf_map_lookup_elem(&acl_ports, &key);
+	if (!mask)
+		return 0;
+	return (*mask >> dp) & 1u;
 }
 
 static __always_inline __u32 allow_ipv4(__u8 l4, __u16 dp)
@@ -272,6 +277,7 @@ static __always_inline __u32 allow_ipv6(__u8 l4, __u16 dp)
 SEC("xdp")
 int xdp_acl(struct xdp_md* ctx)
 {
+	bpf_prefetch(ctx->data + ETH_HLEN, 0, 0);
 	__u16 proto = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
@@ -280,13 +286,13 @@ int xdp_acl(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &pr6, 1);
 	bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 
-	__u8 is_v4 = eq32(proto, ETH_P_IP_BE);
-	__u8 is_v6 = eq32(proto, ETH_P_IPV6_BE);
+	__u32 is_v4 = eq32(proto, ETH_P_IP_BE);
+	__u32 is_v6 = eq32(proto, ETH_P_IPV6_BE);
 
-	__u8  l4     = (pr4 & -is_v4) | (pr6 & -is_v6);
-	__u8  family = AF_INET * is_v4 + AF_INET6 * is_v6;
+	__u8  l4     = (pr4 & is_v4) | (pr6 & is_v6);
+	__u8  family = AF_INET * !!is_v4 + AF_INET6 * !!is_v6;
 	__u32 ihl    = (vhl & 0x0Fu) << 2;
-	__u32 off    = ETH_HLEN + (ihl & -is_v4) + (IPV6_HDR_LEN & -is_v6);
+	__u32 off    = ETH_HLEN + (ihl & is_v4) + (IPV6_HDR_LEN & is_v6);
 
 	__u16 dp = 0;
 	bpf_xdp_load_bytes(ctx, off + 2, &dp, 2);
