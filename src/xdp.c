@@ -28,6 +28,8 @@ char _license[] SEC("license") = "GPL";
 #define AF_INET6          10
 #define PROTO_TCP         6
 #define PROTO_UDP         17
+#define PROTO_ICMP        1
+#define PROTO_ICMP6       58
 #define IPV6_HDR_LEN      40
 #define SYN_RATE_LIMIT    20
 #define SYN_BURST_LIMIT   100
@@ -204,27 +206,39 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
 		return XDP_DROP;
 
-	bool v4 = eth == bpf_htons(ETH_P_IP);
-	bool v6 = eth == bpf_htons(ETH_P_IPV6);
+	__u32 v4 = eth == bpf_htons(ETH_P_IP);
+	__u32 v6 = eth == bpf_htons(ETH_P_IPV6);
 
 	/* 2. src address */
 	struct wl_v6_key k4 = {.family = AF_INET};
 	struct wl_v6_key k6 = {.family = AF_INET6};
-	if (v4)
-		bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k4.addr.s6_addr32, 4);
+	bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k4.addr.s6_addr32, 4);
 	if (v6)
 		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
 	/* 3. lookup */
-        bool hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
-                   (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
+	__u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
+		    (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
 
-	if (hit)
-		return XDP_PASS;
+	__u8 p4 = 0, p6 = 0, vhl = 0, type = 0;
+	bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &p4, 1);
+	bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &p6, 1);
+	bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 
-	/* 4. miss -> panic */
-	bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
-	return XDP_PASS;
+	__u8  l4      = (p4 & -v4) | (p6 & -v6);
+	__u32 is_icmp = (v4 & !(l4 ^ PROTO_ICMP)) | (v6 & !(l4 ^ PROTO_ICMP6));
+	__u32 ihl     = (vhl & 0x0Fu) << 2;
+	__u32 off     = ETH_HLEN + (ihl & -v4) + (IPV6_HDR_LEN & -v6);
+	bpf_xdp_load_bytes(ctx, off, &type, 1);
+
+	__u32 echo4 = v4 & (!(type ^ 8) | !(type ^ 0));
+	__u32 echo6 = v6 & (!(type ^ 128) | !(type ^ 129));
+	__u32 drop  = (!hit) & is_icmp & (echo4 | echo6);
+
+	if (!(hit | drop))
+		bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
+
+	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
 }
 
 SEC("xdp")
@@ -245,41 +259,76 @@ static __always_inline __u32 allow_ipv4(struct xdp_md* ctx, __u16 proto)
 {
 	__u32 err = proto ^ bpf_htons(ETH_P_IP);
 	__u8  vhl = 0, l4 = 0;
+
 	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &l4, 1);
-	__u32 ihl = (vhl & 0x0fu) << 2;
 
-	__u16 dp = 0;
+	__u32 ihl = (vhl & 0x0Fu) << 2;
+	__u16 dp  = 0;
+
 	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + ihl + 2, &dp, 2);
 	dp = bpf_ntohs(dp);
 
-	__u32 l4_ok = !(l4 ^ PROTO_TCP) | !(l4 ^ PROTO_UDP);
-	return (!err) & l4_ok & port_allowed(dp);
+	__u32 is_icmp = !(l4 ^ PROTO_ICMP);
+	__u32 l4_ok   = !(l4 ^ PROTO_TCP) | !(l4 ^ PROTO_UDP);
+
+	return (!err) & (is_icmp | (l4_ok & port_allowed(dp)));
 }
 
 static __always_inline __u32 allow_ipv6(struct xdp_md* ctx, __u16 proto)
 {
 	__u32 err = proto ^ bpf_htons(ETH_P_IPV6);
 	__u8  nh  = 0;
+
 	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &nh, 1);
 
 	__u16 dp = 0;
 	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 42, &dp, 2);
 	dp = bpf_ntohs(dp);
 
-	__u32 l4_ok = !(nh ^ PROTO_TCP) | !(nh ^ PROTO_UDP);
-	return (!err) & l4_ok & port_allowed(dp);
+	__u32 is_icmp = !(nh ^ PROTO_ICMP6);
+	__u32 l4_ok   = !(nh ^ PROTO_TCP) | !(nh ^ PROTO_UDP);
+
+	return (!err) & (is_icmp | (l4_ok & port_allowed(dp)));
 }
 
 SEC("xdp")
-int xdp_acl_dport(struct xdp_md* ctx)
+int xdp_acl(struct xdp_md* ctx)
 {
 	__u16 proto = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
-	__u32 allow = allow_ipv4(ctx, proto) | allow_ipv6(ctx, proto);
+	__u8 pr4 = 0, pr6 = 0, vhl = 0;
+	bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &pr4, 1);
+	bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &pr6, 1);
+	bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 
-	return (int)XDP_DROP + (int)allow;
+	__u8 is_v4 = !(proto ^ bpf_htons(ETH_P_IP));
+	__u8 is_v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
+
+	__u8  l4     = (pr4 & -is_v4) | (pr6 & -is_v6);
+	__u8  family = AF_INET * is_v4 + AF_INET6 * is_v6;
+	__u32 ihl    = (vhl & 0x0Fu) << 2;
+	__u32 off    = ETH_HLEN + (ihl & -is_v4) + (IPV6_HDR_LEN & -is_v6);
+
+	__u32 allow = allow_ipv4(ctx, proto) | allow_ipv6(ctx, proto);
+	__u32 is_icmp =
+	    (!(l4 ^ PROTO_ICMP) & is_v4) | (!(l4 ^ PROTO_ICMP6) & is_v6);
+	__u8 type = 0, code = 0;
+	bpf_xdp_load_bytes(ctx, off, &type, 1);
+	bpf_xdp_load_bytes(ctx, off + 1, &code, 1);
+
+	__u32 echo4   = is_v4 & (!(type ^ 0) | !(type ^ 8));
+	__u32 echo6   = is_v6 & (!(type ^ 128) | !(type ^ 129));
+	__u32 is_echo = is_icmp & (echo4 | echo6);
+
+	struct icmp_key k = {family, type, code};
+	__u32		allowed =
+	    is_icmp & !is_echo & !!bpf_map_lookup_elem(&icmp_allow, &k);
+
+	__u32 mask = ~is_icmp | is_echo | allowed;
+	allow &= mask;
+	return XDP_DROP + allow;
 }
 
 static __always_inline __u32 is_private_ipv4(__u32 ip)
@@ -445,6 +494,8 @@ int xdp_flow_fastpath(struct xdp_md* ctx)
 	struct flow_ctx f = {};
 	parse_l2(ctx, &f);
 	parse_l3(ctx, &f);
+	if (f.l4_proto == PROTO_ICMP || f.l4_proto == PROTO_ICMP6)
+		return XDP_PASS; /* ICMP bypasses state machine */
 	build_keys(ctx, &f);
 	lookup_hits(&f);
 	cleanup_fin_rst(ctx, &f);

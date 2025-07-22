@@ -53,9 +53,15 @@ struct ip6_key {
 };
 
 struct ids_flow_v6_key {
-	__u8  saddr[16], daddr[16];
-	__u16 sport, dport;
-	__u8  proto;
+        __u8  saddr[16], daddr[16];
+        __u16 sport, dport;
+        __u8  proto;
+};
+
+struct icmp_key {
+       __u8 family;
+       __u8 type;
+       __u8 code;
 };
 
 #ifndef TEST_BUILD
@@ -117,6 +123,15 @@ struct acl_port_map {
 	__type(value, __u8);
 };
 MAP_EXTERN struct acl_port_map acl_ports MAP_SEC(".maps");
+
+struct icmp_allow_map {
+       __uint(type, BPF_MAP_TYPE_HASH);
+       __uint(max_entries, 32);
+       __uint(map_flags, BPF_F_NO_PREALLOC);
+       __type(key, struct icmp_key);
+       __type(value, __u8);
+};
+MAP_EXTERN struct icmp_allow_map icmp_allow MAP_SEC(".maps");
 
 /* Blacklists */
 struct ipv4_drop_map {
@@ -206,6 +221,8 @@ struct tcp6_flow_map {
 };
 struct udp6_flow_map {
 };
+struct icmp_allow_map {
+};
 
 // Dummy map instances
 MAP_EXTERN struct jmp_table_map	    jmp_table;
@@ -218,6 +235,7 @@ MAP_EXTERN struct ipv4_drop_map  ipv4_drop;
 MAP_EXTERN struct ipv6_drop_map ipv6_drop;
 MAP_EXTERN struct tcp_flow_map	    tcp_flow;
 MAP_EXTERN struct udp_flow_map	    udp_flow;
+MAP_EXTERN struct icmp_allow_map     icmp_allow;
 MAP_EXTERN struct tcp6_flow_map	    tcp6_flow;
 MAP_EXTERN struct udp6_flow_map	    udp6_flow;
 struct path_stats_map {};
