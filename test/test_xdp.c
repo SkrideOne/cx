@@ -606,7 +606,7 @@ static void test_xdp_acl_icmpv4_allowed(void** state)
 	use_seq = 0;
 }
 
-static void test_xdp_acl_icmpv4_echo_allowed(void** state)
+static void test_xdp_acl_icmpv4_echo_denied(void** state)
 {
 	(void)state;
 	unsigned char buf[64] = {0};
@@ -625,7 +625,7 @@ static void test_xdp_acl_icmpv4_echo_allowed(void** state)
 	mock_map_seq[0] = &mask; // acl_ports
 	mock_map_seq[1] = NULL;	 // icmp_allow miss
 
-	assert_int_equal(xdp_acl(&ctx), XDP_DROP);
+       assert_int_equal(xdp_acl(&ctx), XDP_DROP);
 	use_seq = 0;
 }
 
@@ -676,20 +676,20 @@ static void test_xdp_acl_icmpv6_redirect_denied(void** state)
 	use_seq = 0;
 }
 
-static void test_allow_ipv4_icmp_echo(void** state)
+static void test_allow_ipv4_icmp_echo_denied(void** state)
 {
 	(void)state;
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv4(PROTO_ICMP, 0, 0), 0);
+       assert_int_equal(allow_ipv4(PROTO_ICMP, 0, 0), 0);
 }
 
-static void test_allow_ipv6_icmp_echo(void** state)
+static void test_allow_ipv6_icmp_echo_denied(void** state)
 {
 	(void)state;
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv6(PROTO_ICMP6, 0, 0), 0);
+       assert_int_equal(allow_ipv6(PROTO_ICMP6, 0, 0), 0);
 }
 
 static void test_allow_l4_port_allowed(void** state)
@@ -1209,12 +1209,12 @@ int main(void)
 	    cmocka_unit_test(test_xdp_acl_ipv6_allowed),
 	    cmocka_unit_test(test_xdp_acl_ipv4_denied),
 	    cmocka_unit_test(test_xdp_acl_ipv6_denied),
-	    cmocka_unit_test(test_xdp_acl_icmpv4_allowed),
-	    cmocka_unit_test(test_xdp_acl_icmpv4_echo_allowed),
+           cmocka_unit_test(test_xdp_acl_icmpv4_allowed),
+           cmocka_unit_test(test_xdp_acl_icmpv4_echo_denied),
 	    cmocka_unit_test(test_xdp_acl_icmpv6_allowed),
 	    cmocka_unit_test(test_xdp_acl_icmpv6_redirect_denied),
-	    cmocka_unit_test(test_allow_ipv4_icmp_echo),
-	    cmocka_unit_test(test_allow_ipv6_icmp_echo),
+           cmocka_unit_test(test_allow_ipv4_icmp_echo_denied),
+           cmocka_unit_test(test_allow_ipv6_icmp_echo_denied),
 	    cmocka_unit_test(test_allow_l4_port_allowed),
 	    cmocka_unit_test(test_allow_l4_port_denied),
 	    cmocka_unit_test(test_xdp_udp_state_pass),
