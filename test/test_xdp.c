@@ -54,6 +54,7 @@ typedef int64_t	 __s64;
 #define BPF_MAP_TYPE_PERCPU_HASH 5
 #define BPF_MAP_TYPE_PERCPU_ARRAY 6
 #define BPF_MAP_TYPE_LRU_HASH 9
+#define BPF_MAP_TYPE_LRU_PERCPU_HASH 10
 
 // BPF flags
 #define BPF_ANY 0

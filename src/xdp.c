@@ -62,7 +62,7 @@ struct ip_key {
 } __attribute__((aligned(64)));
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
 	__uint(max_entries, 128);
 	__type(key, struct ip_key);
 	__type(value, struct rate_limit);
@@ -100,7 +100,7 @@ struct {
 } cfg_map SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
 	__uint(max_entries, 128);
 	__type(key, struct udp_key);
 	__type(value, struct udp_meta);
