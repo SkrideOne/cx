@@ -176,19 +176,19 @@ static inline long bpf_map_update_elem(void* map, const void* key,
 
 static inline long bpf_map_delete_elem(void* map, const void* key)
 {
-        if (map == &whitelist_map) {
-                const struct wl_v6_key* k = key;
-                for (int i = 0; i < WL_CAP; ++i)
-                        if (wl_tab[i].used &&
-                            !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
-                                wl_tab[i].used = 0;
-                                return BPF_OK;
-                        }
-                return BPF_ERR;
-        }
-       memcpy(mock_key, key, sizeof(mock_key));
-       mock_map_value = mock_key;
-        return BPF_OK;
+	if (map == &whitelist_map) {
+		const struct wl_v6_key* k = key;
+		for (int i = 0; i < WL_CAP; ++i)
+			if (wl_tab[i].used &&
+			    !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
+				wl_tab[i].used = 0;
+				return BPF_OK;
+			}
+		return BPF_ERR;
+	}
+	memcpy(mock_key, key, sizeof(mock_key));
+	mock_map_value = mock_key;
+	return BPF_OK;
 }
 
 static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
@@ -390,6 +390,91 @@ static void test_parse_ipv6_tcp(void** state)
 	assert_int_equal(p.udp, 0);
 }
 
+static void test_parse_ipv4_ok(void** state)
+{
+	(void)state;
+	unsigned char buf[80] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00; // IPv4
+	buf[14] = 0x45;
+	buf[23] = 6;	// TCP
+	buf[26] = 10;
+	buf[27] = 0;
+	buf[28] = 0;
+	buf[29] = 1;
+	buf[30] = 10;
+	buf[31] = 0;
+	buf[32] = 0;
+	buf[33] = 2;
+	buf[34] = 0x12;
+	buf[35] = 0x34; // sport
+	buf[36] = 0x00;
+	buf[37] = 0x50; // dport
+
+	struct flow_key k = {0};
+	assert_int_equal(parse_ipv4(&ctx, &k), 0);
+	assert_int_equal(k.saddr, 0x0100000a);
+	assert_int_equal(k.daddr, 0x0200000a);
+	assert_int_equal(k.sport, 0x3412);
+	assert_int_equal(k.dport, 0x5000);
+	assert_int_equal(k.proto, 6);
+}
+
+static void test_parse_ipv4_trunc(void** state)
+{
+	(void)state;
+	unsigned char buf[40] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + 30};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
+
+	struct flow_key k = {0};
+	assert_true(parse_ipv4(&ctx, &k) != 0);
+}
+
+static void test_parse_ipv6_ok(void** state)
+{
+	(void)state;
+	unsigned char buf[100] = {0};
+	struct xdp_md ctx      = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x86;
+	buf[13] = 0xdd; // IPv6
+	buf[14] = 0x60;
+	buf[20] = 17;
+	buf[22] = 0x20; // src 2001::1
+	buf[38] = 0x20; // dst 2001::2
+	buf[54] = 0x04;
+	buf[55] = 0xd2; // sport 1234
+	buf[56] = 0x00;
+	buf[57] = 0x50; // dport 80
+
+	struct bypass_v6 k6 = {0};
+	assert_int_equal(parse_ipv6(&ctx, &k6), 0);
+	assert_int_equal(k6.sport, 0xd204);
+	assert_int_equal(k6.dport, 0x5000);
+	assert_int_equal(k6.proto, 17);
+}
+
+static void test_parse_ipv6_trunc(void** state)
+{
+	(void)state;
+	unsigned char buf[40] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + 30};
+
+	buf[12] = 0x86;
+	buf[13] = 0xdd;
+	buf[14] = 0x60;
+
+	struct bypass_v6 k6 = {0};
+	assert_true(parse_ipv6(&ctx, &k6) != 0);
+}
+
 static void test_bl_ipv4_private(void** state)
 {
 	(void)state;
@@ -403,7 +488,7 @@ static void test_bl_ipv4_private(void** state)
 	buf[28] = 0;
 	buf[29] = 1;
 
-       assert_int_equal(bl_ipv4_hit(&ctx, bpf_htons(ETH_P_IP)), 1);
+	assert_int_equal(bl_ipv4_hit(&ctx, bpf_htons(ETH_P_IP)), 1);
 }
 
 static void test_bl_ipv6_ula(void** state)
@@ -418,7 +503,7 @@ static void test_bl_ipv6_ula(void** state)
 	buf[20] = 17;
 	buf[22] = 0xfc; // ULA
 
-       assert_int_equal(bl_ipv6_hit(&ctx, bpf_htons(ETH_P_IPV6)), 1);
+	assert_int_equal(bl_ipv6_hit(&ctx, bpf_htons(ETH_P_IPV6)), 1);
 }
 
 static void test_bl_ipv6_linklocal(void** state)
@@ -434,7 +519,7 @@ static void test_bl_ipv6_linklocal(void** state)
 	buf[22] = 0xfe;
 	buf[23] = 0x80; // fe80::
 
-       assert_int_equal(bl_ipv6_hit(&ctx, bpf_htons(ETH_P_IPV6)), 1);
+	assert_int_equal(bl_ipv6_hit(&ctx, bpf_htons(ETH_P_IPV6)), 1);
 }
 
 static void test_xdp_wl_pass_hit(void** state)
@@ -628,7 +713,7 @@ static void test_xdp_acl_icmpv4_echo_denied(void** state)
 	mock_map_seq[0] = &mask; // acl_ports
 	mock_map_seq[1] = NULL;	 // icmp_allow miss
 
-       assert_int_equal(xdp_acl(&ctx), XDP_DROP);
+	assert_int_equal(xdp_acl(&ctx), XDP_DROP);
 	use_seq = 0;
 }
 
@@ -684,7 +769,7 @@ static void test_allow_l4_icmpv4_echo_denied(void** state)
 	(void)state;
 
 	mock_map_value = NULL;
-       assert_int_equal(allow_l4(AF_INET, PROTO_ICMP, 0, 0), 0);
+	assert_int_equal(allow_l4(AF_INET, PROTO_ICMP, 0, 0), 0);
 }
 
 static void test_allow_l4_icmpv6_echo_denied(void** state)
@@ -692,36 +777,56 @@ static void test_allow_l4_icmpv6_echo_denied(void** state)
 	(void)state;
 
 	mock_map_value = NULL;
-       assert_int_equal(allow_l4(AF_INET6, PROTO_ICMP6, 0, 0), 0);
+	assert_int_equal(allow_l4(AF_INET6, PROTO_ICMP6, 0, 0), 0);
 }
 
 static void test_allow_l4_port_allowed(void** state)
 {
 	(void)state;
 	__u64 mask     = 1ull << 22;
-        mock_map_value = &mask;
-        assert_int_equal(allow_l4(AF_INET, PROTO_TCP, 22, mask), 1);
+	mock_map_value = &mask;
+	assert_int_equal(allow_l4(AF_INET, PROTO_TCP, 22, mask), 1);
 
 	__u64 mask6    = 1ull << 53;
-        mock_map_value = &mask6;
-        assert_int_equal(allow_l4(AF_INET6, PROTO_UDP, 53, mask6), 1);
+	mock_map_value = &mask6;
+	assert_int_equal(allow_l4(AF_INET6, PROTO_UDP, 53, mask6), 1);
 }
 
 static void test_allow_l4_port_denied(void** state)
 {
 	(void)state;
 	mock_map_value = NULL;
-        assert_int_equal(allow_l4(AF_INET, PROTO_TCP, 62, 0), 0);
+	assert_int_equal(allow_l4(AF_INET, PROTO_TCP, 62, 0), 0);
 
 	mock_map_value = NULL;
-        assert_int_equal(allow_l4(AF_INET6, PROTO_UDP, 60, 0), 0);
+	assert_int_equal(allow_l4(AF_INET6, PROTO_UDP, 60, 0), 0);
+}
+
+static void test_fresh_ts_null(void** state)
+{
+	(void)state;
+	assert_int_equal(fresh_ts(NULL, 5, 1), 0);
+}
+
+static void test_fresh_ts_recent(void** state)
+{
+	(void)state;
+	__u64 ts = 5;
+	assert_int_equal(fresh_ts(&ts, 6, 10), 1);
+}
+
+static void test_fresh_ts_expired(void** state)
+{
+	(void)state;
+	__u64 ts = 0;
+	assert_int_equal(fresh_ts(&ts, 11, 10), 0);
 }
 
 static void test_xdp_blacklist_ipv4_private(void** state)
 {
 	(void)state;
-	unsigned char	 buf[64] = {0};
-	struct xdp_md	 ctx	 = {.data = buf, .data_end = buf + sizeof(buf)};
+	unsigned char buf[64] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
 	buf[12] = 0x08;
 	buf[13] = 0x00;
@@ -735,12 +840,12 @@ static void test_xdp_blacklist_ipv4_private(void** state)
 	buf[28] = 0;
 	buf[29] = 1;
 
-       mock_map_value = NULL;
-       assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
-       struct flow_key k4 = {};
-       parse_ipv4(&ctx, &k4);
-       assert_non_null(mock_map_value);
-       assert_memory_equal(mock_map_value, &k4, sizeof(k4));
+	mock_map_value = NULL;
+	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
+	struct flow_key k4 = {};
+	parse_ipv4(&ctx, &k4);
+	assert_non_null(mock_map_value);
+	assert_memory_equal(mock_map_value, &k4, sizeof(k4));
 }
 
 static void test_xdp_blacklist_ipv4_public(void** state)
@@ -763,8 +868,8 @@ static void test_xdp_blacklist_ipv4_public(void** state)
 static void test_xdp_blacklist_ipv6_ula(void** state)
 {
 	(void)state;
-	unsigned char	 buf[80] = {0};
-	struct xdp_md	 ctx	 = {.data = buf, .data_end = buf + sizeof(buf)};
+	unsigned char buf[80] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
 	buf[12] = 0x86;
 	buf[13] = 0xdd;
@@ -776,12 +881,12 @@ static void test_xdp_blacklist_ipv6_ula(void** state)
 	buf[54] = 0x12;
 	buf[55] = 0x34;
 
-       mock_map_value = NULL;
-       assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
-       struct bypass_v6 k6 = {};
-       parse_ipv6(&ctx, &k6);
-       assert_non_null(mock_map_value);
-       assert_memory_equal(mock_map_value, &k6, sizeof(k6));
+	mock_map_value = NULL;
+	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
+	struct bypass_v6 k6 = {};
+	parse_ipv6(&ctx, &k6);
+	assert_non_null(mock_map_value);
+	assert_memory_equal(mock_map_value, &k6, sizeof(k6));
 }
 
 static void test_xdp_udp_state_pass(void** state)
@@ -922,6 +1027,21 @@ static void test_suricata_gate_global_bypass(void** state)
 	mock_map_value = NULL;
 }
 
+static void test_suricata_gate_drop(void** state)
+{
+	(void)state;
+	unsigned char buf[64] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+	buf[14] = 0x45;
+	buf[23] = 6;
+
+	mock_map_value = NULL;
+	assert_int_equal(xdp_suricata_gate(&ctx), XDP_DROP);
+}
+
 static void test_panic_flag_drop(void** state)
 {
 	(void)state;
@@ -940,6 +1060,19 @@ static void test_panic_flag_drop(void** state)
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
 	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
 	use_seq = 0;
+}
+
+static void test_panic_flag_pass(void** state)
+{
+	(void)state;
+	unsigned char buf[64] = {0};
+	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+	buf[12] = 0x08;
+	buf[13] = 0x00;
+
+	mock_map_value = NULL;
+	assert_int_equal(xdp_panic_flag(&ctx), XDP_PASS);
 }
 
 static void test_dynamic_wl(void** state)
@@ -1200,9 +1333,13 @@ int main(void)
 	    cmocka_unit_test(test_is_private_ipv4),
 	    cmocka_unit_test(test_parse_ipv4_udp),
 	    cmocka_unit_test(test_parse_ipv6_tcp),
-            cmocka_unit_test(test_bl_ipv4_private),
-            cmocka_unit_test(test_bl_ipv6_ula),
-            cmocka_unit_test(test_bl_ipv6_linklocal),
+	    cmocka_unit_test(test_parse_ipv4_ok),
+	    cmocka_unit_test(test_parse_ipv4_trunc),
+	    cmocka_unit_test(test_parse_ipv6_ok),
+	    cmocka_unit_test(test_parse_ipv6_trunc),
+	    cmocka_unit_test(test_bl_ipv4_private),
+	    cmocka_unit_test(test_bl_ipv6_ula),
+	    cmocka_unit_test(test_bl_ipv6_linklocal),
 	    cmocka_unit_test(test_xdp_wl_pass_hit),
 	    cmocka_unit_test(test_xdp_wl_pass_echo_miss),
 	    cmocka_unit_test(test_xdp_wl_pass_icmp_other),
@@ -1214,14 +1351,17 @@ int main(void)
 	    cmocka_unit_test(test_xdp_acl_ipv6_allowed),
 	    cmocka_unit_test(test_xdp_acl_ipv4_denied),
 	    cmocka_unit_test(test_xdp_acl_ipv6_denied),
-           cmocka_unit_test(test_xdp_acl_icmpv4_allowed),
-           cmocka_unit_test(test_xdp_acl_icmpv4_echo_denied),
+	    cmocka_unit_test(test_xdp_acl_icmpv4_allowed),
+	    cmocka_unit_test(test_xdp_acl_icmpv4_echo_denied),
 	    cmocka_unit_test(test_xdp_acl_icmpv6_allowed),
 	    cmocka_unit_test(test_xdp_acl_icmpv6_redirect_denied),
-           cmocka_unit_test(test_allow_l4_icmpv4_echo_denied),
-           cmocka_unit_test(test_allow_l4_icmpv6_echo_denied),
+	    cmocka_unit_test(test_allow_l4_icmpv4_echo_denied),
+	    cmocka_unit_test(test_allow_l4_icmpv6_echo_denied),
 	    cmocka_unit_test(test_allow_l4_port_allowed),
 	    cmocka_unit_test(test_allow_l4_port_denied),
+	    cmocka_unit_test(test_fresh_ts_null),
+	    cmocka_unit_test(test_fresh_ts_recent),
+	    cmocka_unit_test(test_fresh_ts_expired),
 	    cmocka_unit_test(test_xdp_udp_state_pass),
 	    cmocka_unit_test(test_xdp_tcp_state_pass),
 	    cmocka_unit_test(test_xdp_udp_state_ipv6),
@@ -1231,7 +1371,9 @@ int main(void)
 	    cmocka_unit_test(test_suricata_gate_bad_ipv6),
 	    cmocka_unit_test(test_suricata_gate_bad_ipv4),
 	    cmocka_unit_test(test_suricata_gate_global_bypass),
+	    cmocka_unit_test(test_suricata_gate_drop),
 	    cmocka_unit_test(test_panic_flag_drop),
+	    cmocka_unit_test(test_panic_flag_pass),
 	    cmocka_unit_test(test_dynamic_wl),
 	    cmocka_unit_test(test_fastpath_counter),
 	    cmocka_unit_test(test_slowpath_counter),
