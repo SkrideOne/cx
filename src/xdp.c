@@ -5,6 +5,24 @@
 #endif
 #include <stdbool.h>
 
+#ifdef __clang_analyzer__
+#ifndef BPF_PREFETCH_STUB
+#define BPF_PREFETCH_STUB
+static inline void bpf_prefetch(const void* p, __u32 a, __u32 b)
+{
+	(void)p;
+	(void)a;
+	(void)b;
+}
+#endif
+#endif
+
+/* Forward declarations for tail-call targets */
+struct xdp_md;
+static int xdp_suricata_gate(struct xdp_md* ctx);
+static int xdp_tcp_state(struct xdp_md* ctx);
+static int xdp_udp_state(struct xdp_md* ctx);
+
 // Purpose: XDP packet filtering logic
 // Pipeline: clang-format > clang-tidy > custom lint > build > test
 // Actions: parse packets and enforce ACL/flow rules
@@ -212,7 +230,7 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	/* 2. src address */
 	struct wl_v6_key k4 = {.family = AF_INET};
 	struct wl_v6_key k6 = {.family = AF_INET6};
-	bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, k4.addr.s6_addr32, 4);
+	bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &k4.addr, 4);
 	if (v6)
 		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
@@ -230,7 +248,7 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	    (v4 & eq32(l4, PROTO_ICMP)) | (v6 & eq32(l4, PROTO_ICMP6));
 	__u32 ihl = (vhl & 0x0Fu) << 2;
 	__u32 off = ETH_HLEN + (ihl & v4) + (IPV6_HDR_LEN & v6);
-	bpf_xdp_load_bytes(ctx, off, &type, 1);
+	bpf_xdp_load_bytes(ctx, (int)off, &type, 1);
 
 	__u32 echo4 = v4 & (!(type ^ 8) | !(type ^ 0));
 	__u32 echo6 = v6 & (!(type ^ 128) | !(type ^ 129));
@@ -260,14 +278,16 @@ static __always_inline __u32 port_allowed(__u16 dp)
 	return (*mask >> dp) & 1u;
 }
 
-static __always_inline __u32 allow_ipv4(__u8 l4, __u16 dp)
+static __always_inline __u32
+allow_ipv4(__u8 l4, __u16 dp) // NOLINT(bugprone-easily-swappable-parameters)
 {
 	__u32 is_icmp = !!eq32(l4, PROTO_ICMP);
 	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
 	return is_icmp | (l4_ok & port_allowed(dp));
 }
 
-static __always_inline __u32 allow_ipv6(__u8 l4, __u16 dp)
+static __always_inline __u32
+allow_ipv6(__u8 l4, __u16 dp) // NOLINT(bugprone-easily-swappable-parameters)
 {
 	__u32 is_icmp = !!eq32(l4, PROTO_ICMP6);
 	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
@@ -295,7 +315,7 @@ int xdp_acl(struct xdp_md* ctx)
 	__u32 off    = ETH_HLEN + (ihl & is_v4) + (IPV6_HDR_LEN & is_v6);
 
 	__u16 dp = 0;
-	bpf_xdp_load_bytes(ctx, off + 2, &dp, 2);
+	bpf_xdp_load_bytes(ctx, (int)(off + 2), &dp, 2);
 	dp = bpf_ntohs(dp);
 
 	__u32 allow =
@@ -304,8 +324,8 @@ int xdp_acl(struct xdp_md* ctx)
 	__u32 is_icmp =
 	    (is_v4 & eq32(l4, PROTO_ICMP)) | (is_v6 & eq32(l4, PROTO_ICMP6));
 	__u8 type = 0, code = 0;
-	bpf_xdp_load_bytes(ctx, off, &type, 1);
-	bpf_xdp_load_bytes(ctx, off + 1, &code, 1);
+	bpf_xdp_load_bytes(ctx, (int)off, &type, 1);
+	bpf_xdp_load_bytes(ctx, (int)(off + 1), &code, 1);
 
 	__u32 echo4   = is_v4 & (eq32(type, 0) | eq32(type, 8));
 	__u32 echo6   = is_v6 & (eq32(type, 128) | eq32(type, 129));

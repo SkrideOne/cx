@@ -252,15 +252,20 @@ static inline __u32 bpf_ntohl(__u32 x)
 })
 #define __ATOMIC_RELAXED 0
 
-static inline void bpf_prefetch(const void* p, __u32 a, __u32 b)
+#ifndef BPF_PREFETCH_STUB
+#define BPF_PREFETCH_STUB
+static inline void
+bpf_prefetch(const void* p, __u32 a,
+	     __u32 b) // NOLINT(bugprone-easily-swappable-parameters)
 {
 	(void)p;
 	(void)a;
 	(void)b;
 }
+#endif
 
 // Now include the XDP source with TEST_BUILD defined
-#include "../src/xdp.c"
+#include "../src/xdp.c" // NOLINT(bugprone-suspicious-include)
 
 // Test functions
 static void test_eq32(void** state)
@@ -437,7 +442,7 @@ static void test_xdp_wl_pass_hit(void** state)
 	buf[12] = 0x08;
 	buf[13] = 0x00;
 
-	__u8 val	= 1;
+	static __u8 val = 1;
 	use_seq		= 1;
 	mock_map_idx	= 0;
 	mock_map_seq[0] = &val; // whitelist hit
@@ -497,7 +502,7 @@ static void test_xdp_wl_pass_echo_hit(void** state)
 	buf[14] = 0x45;
 	buf[23] = PROTO_ICMP;
 
-	__u8 val	= 1;
+	static __u8 val = 1;
 	use_seq		= 1;
 	mock_map_idx	= 0;
 	mock_map_seq[0] = &val; /* whitelist hit */
@@ -847,11 +852,11 @@ static void test_panic_flag_drop(void** state)
 	buf[12] = 0x08;
 	buf[13] = 0x00;
 
-	__u8 flag	= 1;
-	use_seq		= 1;
-	mock_map_idx	= 0;
-	mock_map_seq[0] = NULL;	 // whitelist miss
-	mock_map_seq[1] = &flag; // panic_flag
+	static __u8 flag = 1;
+	use_seq		 = 1;
+	mock_map_idx	 = 0;
+	mock_map_seq[0]	 = NULL;  // whitelist miss
+	mock_map_seq[1]	 = &flag; // panic_flag
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
 	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
@@ -881,8 +886,8 @@ static void test_dynamic_wl(void** state)
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);
 
-	__u8 flag      = 1;
-	mock_map_value = &flag;
+	static __u8 flag = 1;
+	mock_map_value	 = &flag;
 	assert_int_equal(bpf_map_delete_elem(&whitelist_map, &k), BPF_OK);
 	xdp_wl_pass(&ctx);
 	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
@@ -906,14 +911,14 @@ static void test_fastpath_counter(void** state)
 	buf[14] = 0x45;
 	buf[23] = 6;
 
-	__u64 cnt	= 0;
-	use_seq		= 1;
-	mock_map_idx	= 0;
-	mock_map_seq[0] = &cnt; // path_stats fast
-	mock_map_seq[1] = NULL; // tcp_flow
-	mock_map_seq[2] = NULL; // udp_flow
-	mock_map_seq[3] = NULL; // tcp6_flow
-	mock_map_seq[4] = NULL; // udp6_flow
+	static __u64 cnt = 0;
+	use_seq		 = 1;
+	mock_map_idx	 = 0;
+	mock_map_seq[0]	 = &cnt; // path_stats fast
+	mock_map_seq[1]	 = NULL; // tcp_flow
+	mock_map_seq[2]	 = NULL; // udp_flow
+	mock_map_seq[3]	 = NULL; // tcp6_flow
+	mock_map_seq[4]	 = NULL; // udp6_flow
 
 	xdp_flow_fastpath(&ctx);
 	assert_int_equal(cnt, 1);
@@ -931,10 +936,10 @@ static void test_slowpath_counter(void** state)
 	buf[14] = 0x45;
 	buf[23] = 6;
 
-	__u64 cnt	= 0;
-	use_seq		= 1;
-	mock_map_idx	= 0;
-	mock_map_seq[0] = &cnt; // path_stats slow
+	static __u64 cnt = 0;
+	use_seq		 = 1;
+	mock_map_idx	 = 0;
+	mock_map_seq[0]	 = &cnt; // path_stats slow
 
 	xdp_proto_dispatch(&ctx);
 	assert_int_equal(cnt, 1);
@@ -953,7 +958,7 @@ static void test_fastpath_tcp_fin_cleanup(void** state)
 	buf[23] = 6;
 	buf[47] = 0x11; // FIN+ACK
 
-	__u64 cnt = 0, ts = 0;
+	static __u64 cnt = 0, ts = 0;
 	use_seq		= 1;
 	mock_map_idx	= 0;
 	mock_map_seq[0] = &cnt; // path_stats
@@ -998,15 +1003,15 @@ static void test_fastpath_miss_drop(void** state)
 	buf[14] = 0x45;
 	buf[23] = 6;
 
-	__u64 cnt	= 0;
-	use_seq		= 1;
-	mock_map_idx	= 0;
-	mock_map_seq[0] = &cnt; // path_stats
-	mock_map_seq[1] = NULL; // tcp_flow miss
-	mock_map_seq[2] = NULL; // udp_flow miss
-	mock_map_seq[3] = NULL; // tcp6_flow miss
-	mock_map_seq[4] = NULL; // udp6_flow miss
-	tailcall_enable = 1;
+	static __u64 cnt = 0;
+	use_seq		 = 1;
+	mock_map_idx	 = 0;
+	mock_map_seq[0]	 = &cnt; // path_stats
+	mock_map_seq[1]	 = NULL; // tcp_flow miss
+	mock_map_seq[2]	 = NULL; // udp_flow miss
+	mock_map_seq[3]	 = NULL; // tcp6_flow miss
+	mock_map_seq[4]	 = NULL; // udp6_flow miss
+	tailcall_enable	 = 1;
 
 	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_PASS);
 	use_seq = 0;
@@ -1089,17 +1094,17 @@ static void test_udp_rl_tailcall_fail(void** state)
 	buf[14] = 0x45;
 	buf[23] = 17; // UDP
 
-	struct udp_meta m   = {.last_seen = 0, .tokens = 0};
-	__u64		cnt = 0;
-	use_seq		    = 1;
-	mock_map_idx	    = 0;
-	mock_map_seq[0]	    = &cnt; // path_stats
-	mock_map_seq[1]	    = NULL; // tcp_flow miss
-	mock_map_seq[2]	    = NULL; // udp_flow miss
-	mock_map_seq[3]	    = NULL; // tcp6_flow miss
-	mock_map_seq[4]	    = NULL; // udp6_flow miss
-	mock_map_seq[5]	    = &m;   // udp_rl
-	tailcall_enable	    = 0;    // emulate failure
+	static struct udp_meta m   = {.last_seen = 0, .tokens = 0};
+	static __u64	       cnt = 0;
+	use_seq			   = 1;
+	mock_map_idx		   = 0;
+	mock_map_seq[0]		   = &cnt; // path_stats
+	mock_map_seq[1]		   = NULL; // tcp_flow miss
+	mock_map_seq[2]		   = NULL; // udp_flow miss
+	mock_map_seq[3]		   = NULL; // tcp6_flow miss
+	mock_map_seq[4]		   = NULL; // udp6_flow miss
+	mock_map_seq[5]		   = &m;   // udp_rl
+	tailcall_enable		   = 0;	   // emulate failure
 
 	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_DROP);
 	use_seq = 0;
