@@ -233,9 +233,12 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	if (v6)
 		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
-	/* 3. lookup */
-	__u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
-		    (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
+        /* 3. lookup */
+        __u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
+                    (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
+
+        if (hit)
+                return XDP_PASS;
 
 	__u8 p4 = 0, p6 = 0, vhl = 0, type = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &p4, 1);
