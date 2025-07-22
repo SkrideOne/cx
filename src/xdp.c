@@ -273,7 +273,8 @@ int xdp_panic_flag(struct xdp_md* ctx)
 	(void)ctx;
 	const __u32 k = 0;
 	const __u8* v = bpf_map_lookup_elem(&panic_flag, &k);
-	return (v && *v == 1) ? XDP_DROP : XDP_PASS;
+       __u32 active = v && (*v == 1);
+       return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -active);
 }
 
 static __always_inline __u32 allow_ipv4(
@@ -349,7 +350,7 @@ static __always_inline __u32 is_private_ipv4(__u32 ip)
 	return a | b | c | d;
 }
 
-static __always_inline __u32 drop_ipv4(struct xdp_md* ctx, __u16 proto)
+static __always_inline __u32 bl_ipv4_hit(struct xdp_md* ctx, __u16 proto)
 {
 	if (proto != bpf_htons(ETH_P_IP))
 		return RET_OK;
@@ -358,11 +359,11 @@ static __always_inline __u32 drop_ipv4(struct xdp_md* ctx, __u16 proto)
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &ip, 4))
 		return RET_ERR;
 
-	__u32 bl = !!bpf_map_lookup_elem(&ipv4_drop, &ip);
-	return bl | is_private_ipv4(ip);
+        __u32 bl = !!bpf_map_lookup_elem(&ipv4_drop, &ip);
+        return bl | is_private_ipv4(ip);
 }
 
-static __always_inline __u32 drop_ipv6(struct xdp_md* ctx, __u16 proto)
+static __always_inline __u32 bl_ipv6_hit(struct xdp_md* ctx, __u16 proto)
 {
 	if (proto != bpf_htons(ETH_P_IPV6))
 		return RET_OK;
@@ -385,11 +386,11 @@ int xdp_blacklist(struct xdp_md* ctx)
 	__u16 proto = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
-	__u32 drop4 = drop_ipv4(ctx, proto);
-	__u32 drop6 = drop_ipv6(ctx, proto);
-	__u32 drop  = drop4 | drop6;
+       __u32 hit4 = bl_ipv4_hit(ctx, proto);
+       __u32 hit6 = bl_ipv6_hit(ctx, proto);
+       __u32 hit   = hit4 | hit6;
 
-	if (drop4) {
+       if (hit4) {
 		struct flow_key k4 = {};
 		if (!parse_ipv4(ctx, &k4)) {
 			__u32		 idx = idx_v4(&k4);
@@ -398,7 +399,7 @@ int xdp_blacklist(struct xdp_md* ctx)
 		}
 	}
 
-	if (drop6) {
+       if (hit6) {
 		struct bypass_v6 k6 = {};
 		if (!parse_ipv6(ctx, &k6)) {
 			__u32		 idx = idx_v6(&k6);
@@ -407,7 +408,7 @@ int xdp_blacklist(struct xdp_md* ctx)
 		}
 	}
 
-	return drop ? XDP_DROP : XDP_PASS;
+       return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -hit);
 }
 
 static __always_inline void parse_l2(struct xdp_md* ctx, struct flow_ctx* f)
@@ -585,7 +586,7 @@ static __always_inline int match_bypass_ipv6(const struct bypass_v6* v,
 	       v->proto == k->proto;
 }
 
-static __always_inline __u32 drop_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
+static __always_inline __u32 bl_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
 {
 	struct flow_key	  k    = {};
 	__u32		  ok   = !parse_ipv4(ctx, &k);
@@ -597,7 +598,7 @@ static __always_inline __u32 drop_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
 	return cond & (hit ^ 1);
 }
 
-static __always_inline __u32 drop_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
+static __always_inline __u32 bl_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
 {
 	struct bypass_v6  k    = {};
 	__u32		  ok   = !parse_ipv6(ctx, &k);
@@ -625,8 +626,8 @@ int xdp_suricata_gate(struct xdp_md* ctx)
 	__u32 v4 = !(proto ^ bpf_htons(ETH_P_IP));
 	__u32 v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
 
-	drop |= drop_ipv4_suricata(ctx, v4);
-	drop |= drop_ipv6_suricata(ctx, v6);
+       drop |= bl_ipv4_suricata(ctx, v4);
+       drop |= bl_ipv6_suricata(ctx, v6);
 
 	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
 }

@@ -387,7 +387,7 @@ static void test_parse_ipv6_tcp(void** state)
 	assert_int_equal(p.udp, 0);
 }
 
-static void test_drop_ipv4_private(void** state)
+static void test_bl_ipv4_private(void** state)
 {
 	(void)state;
 	unsigned char buf[64] = {0};
@@ -400,10 +400,10 @@ static void test_drop_ipv4_private(void** state)
 	buf[28] = 0;
 	buf[29] = 1;
 
-	assert_int_equal(drop_ipv4(&ctx, bpf_htons(ETH_P_IP)), 1);
+       assert_int_equal(bl_ipv4_hit(&ctx, bpf_htons(ETH_P_IP)), 1);
 }
 
-static void test_drop_ipv6_ula(void** state)
+static void test_bl_ipv6_ula(void** state)
 {
 	(void)state;
 	unsigned char buf[80] = {0};
@@ -415,10 +415,10 @@ static void test_drop_ipv6_ula(void** state)
 	buf[20] = 17;
 	buf[22] = 0xfc; // ULA
 
-	assert_int_equal(drop_ipv6(&ctx, bpf_htons(ETH_P_IPV6)), 1);
+       assert_int_equal(bl_ipv6_hit(&ctx, bpf_htons(ETH_P_IPV6)), 1);
 }
 
-static void test_drop_ipv6_linklocal(void** state)
+static void test_bl_ipv6_linklocal(void** state)
 {
 	(void)state;
 	unsigned char buf[80] = {0};
@@ -431,7 +431,7 @@ static void test_drop_ipv6_linklocal(void** state)
 	buf[22] = 0xfe;
 	buf[23] = 0x80; // fe80::
 
-	assert_int_equal(drop_ipv6(&ctx, bpf_htons(ETH_P_IPV6)), 1);
+       assert_int_equal(bl_ipv6_hit(&ctx, bpf_htons(ETH_P_IPV6)), 1);
 }
 
 static void test_xdp_wl_pass_hit(void** state)
@@ -1195,9 +1195,9 @@ int main(void)
 	    cmocka_unit_test(test_is_private_ipv4),
 	    cmocka_unit_test(test_parse_ipv4_udp),
 	    cmocka_unit_test(test_parse_ipv6_tcp),
-	    cmocka_unit_test(test_drop_ipv4_private),
-	    cmocka_unit_test(test_drop_ipv6_ula),
-	    cmocka_unit_test(test_drop_ipv6_linklocal),
+            cmocka_unit_test(test_bl_ipv4_private),
+            cmocka_unit_test(test_bl_ipv6_ula),
+            cmocka_unit_test(test_bl_ipv6_linklocal),
 	    cmocka_unit_test(test_xdp_wl_pass_hit),
 	    cmocka_unit_test(test_xdp_wl_pass_echo_miss),
 	    cmocka_unit_test(test_xdp_wl_pass_icmp_other),
