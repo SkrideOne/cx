@@ -768,12 +768,6 @@ static __always_inline __u32 check_rate_limit(struct tcp_ctx* t)
 	return store_rl(&k, check, rl) & check;
 }
 
-static __always_inline __u32 tcp_state_drop(struct xdp_md* ctx)
-{
-	struct tcp_ctx t = {};
-	parse_packet(ctx, &t);
-	return check_rate_limit(&t) & 1u;
-}
 
 static __always_inline void parse(struct xdp_md* ctx, struct pkt* p)
 {
@@ -840,26 +834,40 @@ static __always_inline __u32 token_bucket_update(struct udp_key* k,
 	bpf_map_update_elem(&udp_rl, k, &upd, BPF_ANY);
 	return drop;
 }
-static __always_inline __u32 udp_state_drop(struct xdp_md* ctx)
+static __always_inline __u32 state_machine(struct xdp_md* ctx, __u8 proto)
 {
-	struct pkt p = {};
-	parse(ctx, &p);
-	struct rl_cfg  cfg = rl_cfg_get();
-	struct udp_key k   = {};
-	k.is_v6		   = p.v6 != 0;
-	__u32*	     ka	   = (__u32*)&k.addr;
-	const __u32* sa	   = (const __u32*)&p.sip6;
-	ka[0]		   = (p.sip & p.v4) | (sa[0] & p.v6);
-	ka[1]		   = sa[1] & p.v6;
-	ka[2]		   = sa[2] & p.v6;
-	ka[3]		   = sa[3] & p.v6;
-	__u32 drop	   = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
-	return (p.udp != 0) & drop;
+        if (proto == PROTO_TCP) {
+                struct tcp_ctx t = {};
+                parse_packet(ctx, &t);
+                return check_rate_limit(&t) & 1u;
+        }
+        if (proto == PROTO_UDP) {
+                struct pkt p = {};
+                parse(ctx, &p);
+                struct rl_cfg  cfg = rl_cfg_get();
+                struct udp_key k   = {.is_v6 = p.v6 != 0};
+                __u32*       ka    = (__u32*)&k.addr;
+                const __u32* sa    = (const __u32*)&p.sip6;
+                ka[0] = (p.sip & p.v4) | (sa[0] & p.v6);
+                ka[1] = sa[1] & p.v6;
+                ka[2] = sa[2] & p.v6;
+                ka[3] = sa[3] & p.v6;
+                return token_bucket_update(&k, cfg, bpf_ktime_get_ns());
+        }
+        return 0;
 }
 
 SEC("xdp")
 int xdp_state(struct xdp_md* ctx)
 {
-	__u32 drop = tcp_state_drop(ctx) | udp_state_drop(ctx);
-	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
+        __u16 eth_proto = 0;
+        __u8  pr4 = 0, pr6 = 0;
+        bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth_proto, 2);
+        bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &pr4, 1);
+        bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &pr6, 1);
+        __u32 is_v4 = eq32(eth_proto, ETH_P_IP_BE);
+        __u32 is_v6 = eq32(eth_proto, ETH_P_IPV6_BE);
+        __u8  proto = (pr4 & is_v4) | (pr6 & is_v6);
+        __u32 drop  = state_machine(ctx, proto);
+        return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
 }
