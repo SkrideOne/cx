@@ -266,10 +266,10 @@ int xdp_wl_pass(struct xdp_md* ctx)
 SEC("xdp")
 int xdp_panic_flag(struct xdp_md* ctx)
 {
-	(void)ctx;
-	const __u32 k = 0;
-	const __u8* v = bpf_map_lookup_elem(&panic_flag, &k);
-	return (v && (*v & 1u)) ? XDP_DROP : XDP_PASS;
+        (void)ctx;
+        const __u32 k = 0;
+        const __u8* v = bpf_map_lookup_elem(&panic_flag, &k);
+        return (v && *v == 1) ? XDP_DROP : XDP_PASS;
 }
 
 static __always_inline __u32 allow_ipv4(
