@@ -584,88 +584,112 @@ static void test_xdp_acl_ipv6_denied(void** state)
 
 static void test_xdp_acl_icmpv4_allowed(void** state)
 {
-	(void)state;
-	unsigned char buf[64] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+        (void)state;
+        unsigned char buf[64] = {0};
+        struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
-	buf[12] = 0x08;
-	buf[13] = 0x00; // IPv4
-	buf[14] = 0x45;
-	buf[23] = PROTO_ICMP;
-	buf[34] = 11; // type
-	buf[35] = 0;  // code
+        buf[12] = 0x08;
+        buf[13] = 0x00; // IPv4
+        buf[14] = 0x45;
+        buf[23] = PROTO_ICMP;
+        buf[34] = 11; // type
+        buf[35] = 0;  // code
 
-	__u64 mask     = 0;
-	mock_map_value = &mask;
-	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
+        static __u8 val = 1;
+        __u64       mask = 0;
+        use_seq          = 1;
+        mock_map_idx     = 0;
+        mock_map_seq[0]  = &mask; // acl_ports
+        mock_map_seq[1]  = &val;  // icmp_allow
+
+        assert_int_equal(xdp_acl(&ctx), XDP_PASS);
+        use_seq = 0;
 }
 
 static void test_xdp_acl_icmpv4_echo_allowed(void** state)
 {
-	(void)state;
-	unsigned char buf[64] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+        (void)state;
+        unsigned char buf[64] = {0};
+        struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
-	buf[12] = 0x08;
-	buf[13] = 0x00; // IPv4
-	buf[14] = 0x45;
-	buf[23] = PROTO_ICMP;
-	buf[34] = 8; // echo
-	buf[35] = 0;
+        buf[12] = 0x08;
+        buf[13] = 0x00; // IPv4
+        buf[14] = 0x45;
+        buf[23] = PROTO_ICMP;
+        buf[34] = 8; // echo
+        buf[35] = 0;
 
-	mock_map_value = NULL;
-	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
+        __u64 mask     = 0;
+        use_seq          = 1;
+        mock_map_idx     = 0;
+        mock_map_seq[0]  = &mask; // acl_ports
+        mock_map_seq[1]  = NULL;  // icmp_allow miss
+
+        assert_int_equal(xdp_acl(&ctx), XDP_DROP);
+        use_seq = 0;
 }
 
 static void test_xdp_acl_icmpv6_allowed(void** state)
 {
-	(void)state;
-	unsigned char buf[80] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+        (void)state;
+        unsigned char buf[80] = {0};
+        struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
-	buf[12] = 0x86;
-	buf[13] = 0xdd; // IPv6
-	buf[14] = 0x60;
-	buf[20] = PROTO_ICMP6;
-	buf[54] = 2; // type
-	buf[55] = 0; // code
+        buf[12] = 0x86;
+        buf[13] = 0xdd; // IPv6
+        buf[14] = 0x60;
+        buf[20] = PROTO_ICMP6;
+        buf[54] = 2; // type
+        buf[55] = 0; // code
 
-	__u64 mask6    = 1ull << 53;
-	mock_map_value = &mask6;
-	assert_int_equal(xdp_acl(&ctx), XDP_PASS);
+        static __u8 val = 1;
+        __u64       mask = 1ull << 53;
+        use_seq          = 1;
+        mock_map_idx     = 0;
+        mock_map_seq[0]  = &mask; // acl_ports
+        mock_map_seq[1]  = &val;  // icmp_allow
+
+        assert_int_equal(xdp_acl(&ctx), XDP_PASS);
+        use_seq = 0;
 }
 
 static void test_xdp_acl_icmpv6_redirect_denied(void** state)
 {
-	(void)state;
-	unsigned char buf[80] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+        (void)state;
+        unsigned char buf[80] = {0};
+        struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
 
-	buf[12] = 0x86;
-	buf[13] = 0xdd; // IPv6
-	buf[14] = 0x60;
-	buf[20] = PROTO_ICMP6;
-	buf[54] = 137; // redirect
-	buf[55] = 0;
+        buf[12] = 0x86;
+        buf[13] = 0xdd; // IPv6
+        buf[14] = 0x60;
+        buf[20] = PROTO_ICMP6;
+        buf[54] = 137; // redirect
+        buf[55] = 0;
 
-	mock_map_value = NULL;
-	assert_int_equal(xdp_acl(&ctx), XDP_DROP);
+        __u64 mask     = 1ull << 53;
+        use_seq          = 1;
+        mock_map_idx     = 0;
+        mock_map_seq[0]  = &mask; // acl_ports
+        mock_map_seq[1]  = NULL;  // icmp_allow miss
+
+        assert_int_equal(xdp_acl(&ctx), XDP_DROP);
+        use_seq = 0;
 }
 
 static void test_allow_ipv4_icmp_echo(void** state)
 {
-	(void)state;
+        (void)state;
 
-	mock_map_value = NULL;
-	assert_int_equal(allow_ipv4(PROTO_ICMP, 0, 0), 1);
+        mock_map_value = NULL;
+        assert_int_equal(allow_ipv4(PROTO_ICMP, 0, 0), 0);
 }
 
 static void test_allow_ipv6_icmp_echo(void** state)
 {
-	(void)state;
+        (void)state;
 
-	mock_map_value = NULL;
-	assert_int_equal(allow_ipv6(PROTO_ICMP6, 0, 0), 1);
+        mock_map_value = NULL;
+        assert_int_equal(allow_ipv6(PROTO_ICMP6, 0, 0), 0);
 }
 
 static void test_allow_l4_port_allowed(void** state)

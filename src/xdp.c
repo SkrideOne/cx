@@ -275,19 +275,17 @@ int xdp_panic_flag(struct xdp_md* ctx)
 static __always_inline __u32 allow_ipv4(
     __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
 {
-	__u32 is_icmp = !!eq32(l4, PROTO_ICMP);
-	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	__u32 bit     = ((bm >> (dp & 63)) & 1u) & (dp < 64);
-	return is_icmp | (l4_ok & bit);
+        __u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
+        __u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
+        return l4_ok & bit;
 }
 
 static __always_inline __u32 allow_ipv6(
     __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
 {
-	__u32 is_icmp = !!eq32(l4, PROTO_ICMP6);
-	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	__u32 bit     = ((bm >> (dp & 63)) & 1u) & (dp < 64);
-	return is_icmp | (l4_ok & bit);
+        __u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
+        __u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
+        return l4_ok & bit;
 }
 
 SEC("xdp")
@@ -327,17 +325,12 @@ int xdp_acl(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, (int)off, &type, 1);
 	bpf_xdp_load_bytes(ctx, (int)(off + 1), &code, 1);
 
-	__u32 echo4   = is_v4 & (eq32(type, 0) | eq32(type, 8));
-	__u32 echo6   = is_v6 & (eq32(type, 128) | eq32(type, 129));
-	__u32 is_echo = is_icmp & (echo4 | echo6);
+        struct icmp_key k = {family, type, code};
+        __u32           allowed =
+            is_icmp & !!bpf_map_lookup_elem(&icmp_allow, &k);
 
-	struct icmp_key k = {family, type, code};
-	__u32		allowed =
-	    is_icmp & !is_echo & !!bpf_map_lookup_elem(&icmp_allow, &k);
-
-	__u32 mask = ~is_icmp | is_echo | allowed;
-	allow &= mask;
-	return XDP_DROP + allow;
+        allow |= allowed;
+        return XDP_DROP + allow;
 }
 
 static __always_inline __u32 is_private_ipv4(__u32 ip)
