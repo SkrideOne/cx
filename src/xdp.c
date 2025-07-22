@@ -34,6 +34,10 @@ static int xdp_state(struct xdp_md* ctx);
 
 char _license[] SEC("license") = "GPL";
 
+static __always_inline __u32 parse_ipv4(struct xdp_md* ctx, struct flow_key* k);
+static __always_inline __u32 parse_ipv6(struct xdp_md*	  ctx,
+					struct bypass_v6* k6);
+
 #define RET_OK 0
 #define RET_ERR 1
 
@@ -233,12 +237,12 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	if (v6)
 		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
-        /* 3. lookup */
-        __u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
-                    (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
+	/* 3. lookup */
+	__u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
+		    (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
 
-        if (hit)
-                return XDP_PASS;
+	if (hit)
+		return XDP_PASS;
 
 	__u8 p4 = 0, p6 = 0, vhl = 0, type = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &p4, 1);
@@ -266,26 +270,26 @@ int xdp_wl_pass(struct xdp_md* ctx)
 SEC("xdp")
 int xdp_panic_flag(struct xdp_md* ctx)
 {
-        (void)ctx;
-        const __u32 k = 0;
-        const __u8* v = bpf_map_lookup_elem(&panic_flag, &k);
-        return (v && *v == 1) ? XDP_DROP : XDP_PASS;
+	(void)ctx;
+	const __u32 k = 0;
+	const __u8* v = bpf_map_lookup_elem(&panic_flag, &k);
+	return (v && *v == 1) ? XDP_DROP : XDP_PASS;
 }
 
 static __always_inline __u32 allow_ipv4(
     __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
 {
-        __u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-        __u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
-        return l4_ok & bit;
+	__u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
+	__u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
+	return l4_ok & bit;
 }
 
 static __always_inline __u32 allow_ipv6(
     __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
 {
-        __u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-        __u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
-        return l4_ok & bit;
+	__u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
+	__u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
+	return l4_ok & bit;
 }
 
 SEC("xdp")
@@ -325,12 +329,11 @@ int xdp_acl(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, (int)off, &type, 1);
 	bpf_xdp_load_bytes(ctx, (int)(off + 1), &code, 1);
 
-        struct icmp_key k = {family, type, code};
-        __u32           allowed =
-            is_icmp & !!bpf_map_lookup_elem(&icmp_allow, &k);
+	struct icmp_key k = {family, type, code};
+	__u32 allowed	  = is_icmp & !!bpf_map_lookup_elem(&icmp_allow, &k);
 
-        allow |= allowed;
-        return XDP_DROP + allow;
+	allow |= allowed;
+	return XDP_DROP + allow;
 }
 
 static __always_inline __u32 is_private_ipv4(__u32 ip)
@@ -382,7 +385,27 @@ int xdp_blacklist(struct xdp_md* ctx)
 	__u16 proto = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
-	__u32 drop = drop_ipv4(ctx, proto) | drop_ipv6(ctx, proto);
+	__u32 drop4 = drop_ipv4(ctx, proto);
+	__u32 drop6 = drop_ipv6(ctx, proto);
+	__u32 drop  = drop4 | drop6;
+
+	if (drop4) {
+		struct flow_key k4 = {};
+		if (!parse_ipv4(ctx, &k4)) {
+			__u32		 idx = idx_v4(&k4);
+			struct bypass_v4 z   = {};
+			bpf_map_update_elem(&flow_table_v4, &idx, &z, BPF_ANY);
+		}
+	}
+
+	if (drop6) {
+		struct bypass_v6 k6 = {};
+		if (!parse_ipv6(ctx, &k6)) {
+			__u32		 idx = idx_v6(&k6);
+			struct bypass_v6 z   = {};
+			bpf_map_update_elem(&flow_table_v6, &idx, &z, BPF_ANY);
+		}
+	}
 
 	return drop ? XDP_DROP : XDP_PASS;
 }
@@ -589,13 +612,13 @@ static __always_inline __u32 drop_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
 SEC("xdp")
 int xdp_suricata_gate(struct xdp_md* ctx)
 {
-        __u32 idx = 0;
-        const __u8* bypass = bpf_map_lookup_elem(&global_bypass, &idx);
-        if (bypass && *bypass == 1)
-                return XDP_PASS;
+	__u32	    idx	   = 0;
+	const __u8* bypass = bpf_map_lookup_elem(&global_bypass, &idx);
+	if (bypass && *bypass == 1)
+		return XDP_PASS;
 
-        __u16 proto = 0;
-        __u32 drop  = 0;
+	__u16 proto = 0;
+	__u32 drop  = 0;
 
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 
