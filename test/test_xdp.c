@@ -122,6 +122,14 @@ static unsigned char mock_storage[64];
 static unsigned char mock_key[64];
 static int	     tailcall_enable;
 
+static inline void copy_bytes(void* dst, const void* src, size_t len)
+{
+    const unsigned char* s = src;
+    unsigned char* d = dst;
+    for (size_t i = 0; i < len; ++i)
+        d[i] = s[i];
+}
+
 #ifndef BPF_STUB_H
 static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 				     __u32 len)
@@ -168,10 +176,15 @@ static inline long bpf_map_update_elem(void* map, const void* key,
 			}
 		return BPF_ERR;
 	}
-	(void)flags;
-	memcpy(mock_storage, val, sizeof(mock_storage));
-	mock_map_value = mock_storage;
-	return BPF_OK;
+        (void)key;
+        (void)flags;
+        size_t len = sizeof(mock_storage);
+        if (map == &tcp_flow || map == &udp_flow || map == &tcp6_flow ||
+            map == &udp6_flow)
+                len = sizeof(__u64);
+        copy_bytes(mock_storage, val, len);
+        mock_map_value = mock_storage;
+        return BPF_OK;
 }
 
 static inline long bpf_map_delete_elem(void* map, const void* key)
@@ -186,9 +199,16 @@ static inline long bpf_map_delete_elem(void* map, const void* key)
 			}
 		return BPF_ERR;
 	}
-	memcpy(mock_key, key, sizeof(mock_key));
-	mock_map_value = mock_key;
-	return BPF_OK;
+        size_t len = sizeof(mock_key);
+        if (map == &flow_table_v4 || map == &tcp_flow || map == &udp_flow)
+                len = sizeof(struct flow_key);
+        else if (map == &flow_table_v6)
+                len = sizeof(struct bypass_v6);
+        else if (map == &tcp6_flow || map == &udp6_flow)
+                len = sizeof(struct ids_flow_v6_key);
+        copy_bytes(mock_key, key, len);
+        mock_map_value = mock_key;
+        return BPF_OK;
 }
 
 static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
