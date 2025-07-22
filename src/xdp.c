@@ -223,9 +223,8 @@ int xdp_wl_pass(struct xdp_md* ctx)
 {
 	bpf_prefetch(ctx->data + ETH_HLEN, 0, 0);
 	/* 1. Ethernet proto */
-	__u16 eth = 0;
-	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
-		return XDP_DROP;
+       __u16 eth = 0;
+       __u32 err = bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2);
 
 	__u32 v4 = eq32(eth, ETH_P_IP_BE);
 	__u32 v6 = eq32(eth, ETH_P_IPV6_BE);
@@ -233,16 +232,12 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	/* 2. src address */
 	struct wl_v6_key k4 = {.family = AF_INET};
 	struct wl_v6_key k6 = {.family = AF_INET6};
-	bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &k4.addr, 4);
-	if (v6)
-		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
+       bpf_xdp_load_bytes(ctx, ETH_HLEN + 12, &k4.addr, 4);
+       err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16) & -v6;
 
 	/* 3. lookup */
-	__u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
-		    (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
-
-	if (hit)
-		return XDP_PASS;
+       __u32 hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
+                   (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
 
 	__u8 p4 = 0, p6 = 0, vhl = 0, type = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &p4, 1);
@@ -257,15 +252,16 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	__u32 off     = ETH_HLEN + (ihl & v4) + (IPV6_HDR_LEN & v6);
 	bpf_xdp_load_bytes(ctx, (int)off, &type, 1);
 
-	__u32 echo4 = icmp4 & (eq32(type, 0) | eq32(type, 8));
-	__u32 echo6 = icmp6 & (eq32(type, 128) | eq32(type, 129));
-	__u32 drop  = (!hit) & is_icmp & (echo4 | echo6);
+       __u32 echo4 = icmp4 & (eq32(type, 0) | eq32(type, 8));
+       __u32 echo6 = icmp6 & (eq32(type, 128) | eq32(type, 129));
+       __u32 drop  = (!hit) & is_icmp & (echo4 | echo6);
+       drop |= err != 0;
+       __u32 call = !(hit | drop);
+       if (call)
+               bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
 
-	if (!(hit | drop))
-		bpf_tail_call(ctx, &jmp_table, PANIC_IDX);
-
-        __u32 res = XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
-        return res;
+       __u32 res = XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
+       return res ^ ((res ^ XDP_PASS) & -hit);
 }
 
 SEC("xdp")
@@ -497,9 +493,9 @@ int xdp_flow_fastpath(struct xdp_md* ctx)
 	count_fast();
 	struct flow_ctx f = {};
 	parse_l2(ctx, &f);
-	parse_l3(ctx, &f);
-	if (f.l4_proto == PROTO_ICMP || f.l4_proto == PROTO_ICMP6)
-		return XDP_PASS; /* ICMP bypasses state machine */
+       parse_l3(ctx, &f);
+       __u32 icmp =
+           eq32(f.l4_proto, PROTO_ICMP) | eq32(f.l4_proto, PROTO_ICMP6);
 	build_keys(ctx, &f);
 	lookup_hits(&f);
 	cleanup_fin_rst(ctx, &f);
@@ -516,7 +512,8 @@ int xdp_flow_fastpath(struct xdp_md* ctx)
 		ka[3] = sa6[3] & -f.is_ipv6;
 		drop  = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
 	}
-	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
+       __u32 res = XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
+       return res ^ ((res ^ XDP_PASS) & -icmp);
 }
 
 static __always_inline __u32 parse_ipv4(struct xdp_md* ctx, struct flow_key* k)
