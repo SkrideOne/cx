@@ -83,10 +83,11 @@ struct ip_key {
 } __attribute__((aligned(64)));
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
-	__uint(max_entries, 128);
-	__type(key, struct ip_key);
-	__type(value, struct rate_limit);
+        __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+        __uint(max_entries, 128);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __type(key, struct ip_key);
+        __type(value, struct rate_limit);
 } tcp_rate SEC(".maps");
 
 struct tcp_ctx {
@@ -121,10 +122,11 @@ struct {
 } cfg_map SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
-	__uint(max_entries, 128);
-	__type(key, struct udp_key);
-	__type(value, struct udp_meta);
+        __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+        __uint(max_entries, 128);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __type(key, struct udp_key);
+        __type(value, struct udp_meta);
 } udp_rl SEC(".maps");
 
 struct pkt {
@@ -458,7 +460,7 @@ static __always_inline void lookup_hits(struct flow_ctx* f)
 }
 
 static __always_inline void cleanup_fin_rst(struct xdp_md*   ctx,
-					    struct flow_ctx* f)
+                                            struct flow_ctx* f)
 {
 	__u8 fl4 = 0, fl6 = 0;
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + f->hdr_len + 13, &fl4, 1);
@@ -472,7 +474,29 @@ static __always_inline void cleanup_fin_rst(struct xdp_md*   ctx,
 	struct ids_flow_v6_key k6    = f->key_v6;
 	__u8		       mask6 = -(fin_rst & f->is_ipv6);
 	k6.proto &= mask6;
-	bpf_map_delete_elem(&tcp6_flow, &k6);
+        bpf_map_delete_elem(&tcp6_flow, &k6);
+}
+
+static __always_inline void update_fast_flows(struct flow_ctx* f)
+{
+        __u64                  ts     = bpf_ktime_get_ns();
+        struct flow_key        k4_tcp = f->key_v4, k4_udp = f->key_v4;
+        struct ids_flow_v6_key k6_tcp = f->key_v6, k6_udp = f->key_v6;
+
+        __u8 m4t = (__u8)(f->is_ipv4 & f->is_tcp);
+        __u8 m4u = (__u8)(f->is_ipv4 & f->is_udp);
+        __u8 m6t = (__u8)(f->is_ipv6 & f->is_tcp);
+        __u8 m6u = (__u8)(f->is_ipv6 & f->is_udp);
+
+        k4_tcp.proto = (f->l4_proto & m4t) | (INVALID_PROTO & ~m4t);
+        k4_udp.proto = (f->l4_proto & m4u) | (INVALID_PROTO & ~m4u);
+        k6_tcp.proto = (f->l4_proto & m6t) | (INVALID_PROTO & ~m6t);
+        k6_udp.proto = (f->l4_proto & m6u) | (INVALID_PROTO & ~m6u);
+
+        bpf_map_update_elem(&tcp_flow, &k4_tcp, &ts, BPF_ANY);
+        bpf_map_update_elem(&udp_flow, &k4_udp, &ts, BPF_ANY);
+        bpf_map_update_elem(&tcp6_flow, &k6_tcp, &ts, BPF_ANY);
+        bpf_map_update_elem(&udp6_flow, &k6_udp, &ts, BPF_ANY);
 }
 
 static __always_inline int do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
@@ -493,31 +517,28 @@ static __always_inline int do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
 SEC("xdp")
 int xdp_flow_fastpath(struct xdp_md* ctx)
 {
-	count_fast();
-	struct flow_ctx f = {};
-	parse_l2(ctx, &f);
-       parse_l3(ctx, &f);
-       __u32 icmp =
-           eq32(f.l4_proto, PROTO_ICMP) | eq32(f.l4_proto, PROTO_ICMP6);
-	build_keys(ctx, &f);
-	lookup_hits(&f);
-	cleanup_fin_rst(ctx, &f);
-	do_tailcall(ctx, &f); /* HIT -> TCP/UDP-state or SURICATA */
-	__u32 drop = 0;
-	if (f.is_udp) {
-		struct rl_cfg  cfg = rl_cfg_get();
-		struct udp_key k   = {.is_v6 = f.is_ipv6};
-		__u32*	       ka  = (__u32*)&k.addr;
-		const __u32*   sa6 = (const __u32*)f.key_v6.saddr;
-		ka[0] = (f.key_v4.saddr & -f.is_ipv4) | (sa6[0] & -f.is_ipv6);
-		ka[1] = sa6[1] & -f.is_ipv6;
-		ka[2] = sa6[2] & -f.is_ipv6;
-		ka[3] = sa6[3] & -f.is_ipv6;
-		drop  = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
-	}
-       __u32 res = XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
-       return res ^ ((res ^ XDP_PASS) & -icmp);
+        count_fast();
+        struct flow_ctx f = {};
+        parse_l2(ctx, &f);
+        parse_l3(ctx, &f);
+        build_keys(ctx, &f);
+        lookup_hits(&f);
+        cleanup_fin_rst(ctx, &f);
+        update_fast_flows(&f);
+        if (f.is_udp) {
+                struct rl_cfg  cfg = rl_cfg_get();
+                struct udp_key k   = {.is_v6 = f.is_ipv6};
+                __u32*         ka  = (__u32*)&k.addr;
+                const __u32*   sa6 = (const __u32*)f.key_v6.saddr;
+                ka[0] = (f.key_v4.saddr & -f.is_ipv4) | (sa6[0] & -f.is_ipv6);
+                ka[1] = sa6[1] & -f.is_ipv6;
+                ka[2] = sa6[2] & -f.is_ipv6;
+                ka[3] = sa6[3] & -f.is_ipv6;
+                token_bucket_update(&k, cfg, bpf_ktime_get_ns());
+        }
+        return XDP_PASS;
 }
+
 
 static __always_inline __u32 parse_ipv4(struct xdp_md* ctx, struct flow_key* k)
 {
@@ -651,17 +672,14 @@ static __always_inline void update_flows(struct dispatch_ctx* d)
 SEC("xdp")
 int xdp_proto_dispatch(struct xdp_md* ctx)
 {
-	count_slow();
-	struct dispatch_ctx d = {};
+        count_slow();
+        struct dispatch_ctx d = {};
 
-	parse_l2_l3(ctx, &d);
-	build_keys_dispatch(ctx, &d);
-	update_flows(&d);
+        parse_l2_l3(ctx, &d);
+        build_keys_dispatch(ctx, &d);
+        update_flows(&d);
 
-	bpf_tail_call(ctx, &jmp_table,
-		      (STATE_IDX & (d.is_tcp | d.is_udp)) |
-			  (INVALID_IDX & ~(d.is_tcp | d.is_udp)));
-	return XDP_PASS;
+        return XDP_PASS;
 }
 
 static __always_inline void detect_ip_proto(struct xdp_md*  ctx,

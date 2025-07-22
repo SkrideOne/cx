@@ -1338,7 +1338,7 @@ static void test_udp_rl_tailcall_fail(void** state)
 	mock_map_seq[5]		   = &m;   // udp_rl
 	tailcall_enable		   = 0;	   // emulate failure
 
-	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_DROP);
+	assert_int_equal(xdp_flow_fastpath(&ctx), XDP_PASS);
 	use_seq = 0;
 }
 

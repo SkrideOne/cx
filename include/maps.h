@@ -163,34 +163,38 @@ MAP_EXTERN struct ipv6_drop_map ipv6_drop MAP_SEC(".maps");
 
 /* Flow tracking - LRU for auto-eviction */
 struct tcp_flow_map {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__uint(max_entries, 32768);
-	__type(key, struct flow_key);
-	__type(value, __u64);
+        __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+        __uint(max_entries, 32768);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __type(key, struct flow_key);
+        __type(value, __u64);
 };
 MAP_EXTERN struct tcp_flow_map tcp_flow MAP_SEC(".maps");
 
 struct udp_flow_map {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__uint(max_entries, 32768);
-	__type(key, struct flow_key);
-	__type(value, __u64);
+        __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+        __uint(max_entries, 32768);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __type(key, struct flow_key);
+        __type(value, __u64);
 };
 MAP_EXTERN struct udp_flow_map udp_flow MAP_SEC(".maps");
 
 struct tcp6_flow_map {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__uint(max_entries, 32768);
-	__type(key, struct ids_flow_v6_key);
-	__type(value, __u64);
+        __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+        __uint(max_entries, 32768);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __type(key, struct ids_flow_v6_key);
+        __type(value, __u64);
 };
 MAP_EXTERN struct tcp6_flow_map tcp6_flow MAP_SEC(".maps");
 
 struct udp6_flow_map {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__uint(max_entries, 1024);
-	__type(key, struct ids_flow_v6_key);
-	__type(value, __u64);
+        __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
+        __uint(max_entries, 1024);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __type(key, struct ids_flow_v6_key);
+        __type(value, __u64);
 };
 MAP_EXTERN struct udp6_flow_map udp6_flow MAP_SEC(".maps");
 
