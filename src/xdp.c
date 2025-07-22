@@ -301,11 +301,14 @@ int xdp_acl(struct xdp_md* ctx)
 
 	__u8  l4     = (pr4 & is_v4) | (pr6 & is_v6);
 	__u8  family = AF_INET * !!is_v4 + AF_INET6 * !!is_v6;
-	__u32 ihl    = (vhl & 0x0Fu) << 2;
-	__u32 off    = ETH_HLEN + (ihl & is_v4) + (IPV6_HDR_LEN & is_v6);
+       __u32 ihl    = (vhl & 0x0Fu) << 2;
+       __u32 off    = ETH_HLEN + (ihl & is_v4) + (IPV6_HDR_LEN & is_v6);
 
-	__u16 dp = 0;
-	bpf_xdp_load_bytes(ctx, (int)(off + 2), &dp, 2);
+       if ((void*)ctx->data + off + 2 > (void*)ctx->data_end)
+               return XDP_DROP;
+
+       __u16 dp = 0;
+       bpf_xdp_load_bytes(ctx, (int)(off + 2), &dp, 2);
 	dp = bpf_ntohs(dp);
 
 	__u32	     key = 0;
@@ -545,26 +548,6 @@ static __always_inline __u32 parse_ipv6(struct xdp_md*	  ctx,
 	k6->dir	  = 0;
 	return err;
 }
-
-/* DEAD_CODE_START */
-static __always_inline int match_bypass_ipv4(const struct bypass_v4* v,
-                                             const struct flow_key*  k)
-{
-        return v && v->saddr == k->saddr && v->daddr == k->daddr &&
-               v->sport == k->sport && v->dport == k->dport &&
-               v->proto == k->proto;
-}
-
-static __always_inline int match_bypass_ipv6(const struct bypass_v6* v,
-                                             const struct bypass_v6* k)
-{
-        return v && !__builtin_memcmp(v->saddr, k->saddr, 16) &&
-               !__builtin_memcmp(v->daddr, k->daddr, 16) &&
-               v->sport == k->sport && v->dport == k->dport &&
-               v->proto == k->proto;
-}
-/* DEAD_CODE_END */ // REMOVE_IN_NEXT_REFRACTOR
-
 
 static __always_inline __u32 bl_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
 {
