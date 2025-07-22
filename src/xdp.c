@@ -274,7 +274,8 @@ static __always_inline __u32 allow_ipv4(
 {
 	__u32 is_icmp = !!eq32(l4, PROTO_ICMP);
 	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	return is_icmp | (l4_ok & ((bm >> dp) & 1u));
+	__u32 bit     = ((bm >> (dp & 63)) & 1u) & (dp < 64);
+	return is_icmp | (l4_ok & bit);
 }
 
 static __always_inline __u32 allow_ipv6(
@@ -282,7 +283,8 @@ static __always_inline __u32 allow_ipv6(
 {
 	__u32 is_icmp = !!eq32(l4, PROTO_ICMP6);
 	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	return is_icmp | (l4_ok & ((bm >> dp) & 1u));
+	__u32 bit     = ((bm >> (dp & 63)) & 1u) & (dp < 64);
+	return is_icmp | (l4_ok & bit);
 }
 
 SEC("xdp")
