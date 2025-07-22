@@ -119,6 +119,7 @@ static void*	     mock_map_seq[8];
 static int	     mock_map_idx;
 static int	     use_seq;
 static unsigned char mock_storage[64];
+static __u32         mock_key;
 static int	     tailcall_enable;
 
 #ifndef BPF_STUB_H
@@ -175,17 +176,19 @@ static inline long bpf_map_update_elem(void* map, const void* key,
 
 static inline long bpf_map_delete_elem(void* map, const void* key)
 {
-	if (map == &whitelist_map) {
-		const struct wl_v6_key* k = key;
-		for (int i = 0; i < WL_CAP; ++i)
-			if (wl_tab[i].used &&
-			    !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
-				wl_tab[i].used = 0;
-				return BPF_OK;
-			}
-		return BPF_ERR;
-	}
-	return BPF_OK;
+        if (map == &whitelist_map) {
+                const struct wl_v6_key* k = key;
+                for (int i = 0; i < WL_CAP; ++i)
+                        if (wl_tab[i].used &&
+                            !memcmp(&wl_tab[i].key, k, sizeof(*k))) {
+                                wl_tab[i].used = 0;
+                                return BPF_OK;
+                        }
+                return BPF_ERR;
+        }
+        memcpy(&mock_key, key, sizeof(mock_key));
+        mock_map_value = &mock_key;
+        return BPF_OK;
 }
 
 static inline void* bpf_map_lookup_percpu_elem(void* map, const void* key,
@@ -676,48 +679,47 @@ static void test_xdp_acl_icmpv6_redirect_denied(void** state)
 	use_seq = 0;
 }
 
-static void test_allow_ipv4_icmp_echo_denied(void** state)
+static void test_allow_l4_icmpv4_echo_denied(void** state)
 {
 	(void)state;
 
 	mock_map_value = NULL;
-       assert_int_equal(allow_ipv4(PROTO_ICMP, 0, 0), 0);
+       assert_int_equal(allow_l4(AF_INET, PROTO_ICMP, 0, 0), 0);
 }
 
-static void test_allow_ipv6_icmp_echo_denied(void** state)
+static void test_allow_l4_icmpv6_echo_denied(void** state)
 {
 	(void)state;
 
 	mock_map_value = NULL;
-       assert_int_equal(allow_ipv6(PROTO_ICMP6, 0, 0), 0);
+       assert_int_equal(allow_l4(AF_INET6, PROTO_ICMP6, 0, 0), 0);
 }
 
 static void test_allow_l4_port_allowed(void** state)
 {
 	(void)state;
 	__u64 mask     = 1ull << 22;
-	mock_map_value = &mask;
-	assert_int_equal(allow_ipv4(PROTO_TCP, 22, mask), 1);
+        mock_map_value = &mask;
+        assert_int_equal(allow_l4(AF_INET, PROTO_TCP, 22, mask), 1);
 
 	__u64 mask6    = 1ull << 53;
-	mock_map_value = &mask6;
-	assert_int_equal(allow_ipv6(PROTO_UDP, 53, mask6), 1);
+        mock_map_value = &mask6;
+        assert_int_equal(allow_l4(AF_INET6, PROTO_UDP, 53, mask6), 1);
 }
 
 static void test_allow_l4_port_denied(void** state)
 {
 	(void)state;
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv4(PROTO_TCP, 62, 0), 0);
+        assert_int_equal(allow_l4(AF_INET, PROTO_TCP, 62, 0), 0);
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv6(PROTO_UDP, 60, 0), 0);
+        assert_int_equal(allow_l4(AF_INET6, PROTO_UDP, 60, 0), 0);
 }
 
 static void test_xdp_blacklist_ipv4_private(void** state)
 {
 	(void)state;
-	struct bypass_v4 zero	 = {};
 	unsigned char	 buf[64] = {0};
 	struct xdp_md	 ctx	 = {.data = buf, .data_end = buf + sizeof(buf)};
 
@@ -733,10 +735,13 @@ static void test_xdp_blacklist_ipv4_private(void** state)
 	buf[28] = 0;
 	buf[29] = 1;
 
-	mock_map_value = NULL;
-	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
-	assert_non_null(mock_map_value);
-	assert_memory_equal(mock_map_value, &zero, sizeof(zero));
+       mock_map_value = NULL;
+       assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
+       struct flow_key k4 = {};
+       parse_ipv4(&ctx, &k4);
+       __u32 idx = idx_v4(&k4);
+       assert_non_null(mock_map_value);
+       assert_int_equal(*(__u32*)mock_map_value, idx);
 }
 
 static void test_xdp_blacklist_ipv4_public(void** state)
@@ -759,7 +764,6 @@ static void test_xdp_blacklist_ipv4_public(void** state)
 static void test_xdp_blacklist_ipv6_ula(void** state)
 {
 	(void)state;
-	struct bypass_v6 zero	 = {};
 	unsigned char	 buf[80] = {0};
 	struct xdp_md	 ctx	 = {.data = buf, .data_end = buf + sizeof(buf)};
 
@@ -773,10 +777,13 @@ static void test_xdp_blacklist_ipv6_ula(void** state)
 	buf[54] = 0x12;
 	buf[55] = 0x34;
 
-	mock_map_value = NULL;
-	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
-	assert_non_null(mock_map_value);
-	assert_memory_equal(mock_map_value, &zero, sizeof(zero));
+       mock_map_value = NULL;
+       assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
+       struct bypass_v6 k6 = {};
+       parse_ipv6(&ctx, &k6);
+       __u32 idx = idx_v6(&k6);
+       assert_non_null(mock_map_value);
+       assert_int_equal(*(__u32*)mock_map_value, idx);
 }
 
 static void test_xdp_udp_state_pass(void** state)
@@ -1213,8 +1220,8 @@ int main(void)
            cmocka_unit_test(test_xdp_acl_icmpv4_echo_denied),
 	    cmocka_unit_test(test_xdp_acl_icmpv6_allowed),
 	    cmocka_unit_test(test_xdp_acl_icmpv6_redirect_denied),
-           cmocka_unit_test(test_allow_ipv4_icmp_echo_denied),
-           cmocka_unit_test(test_allow_ipv6_icmp_echo_denied),
+           cmocka_unit_test(test_allow_l4_icmpv4_echo_denied),
+           cmocka_unit_test(test_allow_l4_icmpv6_echo_denied),
 	    cmocka_unit_test(test_allow_l4_port_allowed),
 	    cmocka_unit_test(test_allow_l4_port_denied),
 	    cmocka_unit_test(test_xdp_udp_state_pass),

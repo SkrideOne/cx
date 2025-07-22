@@ -277,20 +277,13 @@ int xdp_panic_flag(struct xdp_md* ctx)
        return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -active);
 }
 
-static __always_inline __u32 allow_ipv4(
-    __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
+static __always_inline __u32 allow_l4(__u8 family, __u8 proto, __u16 port,
+                                      __u64 bm)
 {
-	__u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	__u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
-	return l4_ok & bit;
-}
-
-static __always_inline __u32 allow_ipv6(
-    __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
-{
-	__u32 l4_ok = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	__u32 bit   = ((bm >> (dp & 63)) & 1u) & (dp < 64);
-	return l4_ok & bit;
+       (void)family;
+       __u32 ok  = (proto == PROTO_TCP) | (proto == PROTO_UDP);
+       __u32 bit = ((bm >> (port & 63)) & 1u) & (port < 64);
+       return ok & bit;
 }
 
 SEC("xdp")
@@ -321,8 +314,7 @@ int xdp_acl(struct xdp_md* ctx)
 	const __u64* m	 = bpf_map_lookup_elem(&acl_ports, &key);
 	__u64	     bm	 = m ? *m : 0;
 
-	__u32 allow =
-	    (is_v4 & allow_ipv4(l4, dp, bm)) | (is_v6 & allow_ipv6(l4, dp, bm));
+       __u32 allow = allow_l4(family, l4, dp, bm);
 
 	__u32 is_icmp =
 	    (is_v4 & eq32(l4, PROTO_ICMP)) | (is_v6 & eq32(l4, PROTO_ICMP6));
@@ -394,8 +386,7 @@ int xdp_blacklist(struct xdp_md* ctx)
 		struct flow_key k4 = {};
 		if (!parse_ipv4(ctx, &k4)) {
 			__u32		 idx = idx_v4(&k4);
-			struct bypass_v4 z   = {};
-			bpf_map_update_elem(&flow_table_v4, &idx, &z, BPF_ANY);
+			bpf_map_delete_elem(&flow_table_v4, &idx);
 		}
 	}
 
@@ -403,8 +394,7 @@ int xdp_blacklist(struct xdp_md* ctx)
 		struct bypass_v6 k6 = {};
 		if (!parse_ipv6(ctx, &k6)) {
 			__u32		 idx = idx_v6(&k6);
-			struct bypass_v6 z   = {};
-			bpf_map_update_elem(&flow_table_v6, &idx, &z, BPF_ANY);
+			bpf_map_delete_elem(&flow_table_v6, &idx);
 		}
 	}
 
