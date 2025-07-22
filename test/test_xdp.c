@@ -33,6 +33,8 @@ typedef int64_t	 __s64;
 #define __uint(name, val)
 #define __type(name, val)
 #define __array(name, val)
+#define STATE_IDX 8
+#define SURICATA_IDX 6
 
 // Test-specific definitions
 #define XDP_PASS 2
@@ -235,15 +237,13 @@ static inline __u32 bpf_ntohl(__u32 x)
 	})
 
 #define bpf_tail_call(ctx, map, idx)                                          \
-    do {                                                                     \
-        if (tailcall_enable) {                                               \
-            if ((idx) == TCP_STATE_IDX)                                      \
-                return xdp_tcp_state(ctx);                                   \
-            else if ((idx) == UDP_STATE_IDX)                                 \
-                return xdp_udp_state(ctx);                                   \
-            else if ((idx) == SURICATA_IDX)                                  \
-                return xdp_suricata_gate(ctx);                               \
-        }                                                                    \
+    do {                                                                      \
+        if (tailcall_enable) {                                                \
+            if ((idx) == STATE_IDX)                                           \
+                return xdp_state(ctx);                                        \
+            else if ((idx) == SURICATA_IDX)                                   \
+                return xdp_suricata_gate(ctx);                                \
+        }                                                                     \
     } while (0)
 #define __atomic_fetch_add(ptr, val, order) ({ \
         __typeof__(*(ptr)) old = *(ptr); \
@@ -656,7 +656,7 @@ static void test_allow_ipv4_icmp_echo(void** state)
 	(void)state;
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv4(PROTO_ICMP, 0), 1);
+	assert_int_equal(allow_ipv4(PROTO_ICMP, 0, 0), 1);
 }
 
 static void test_allow_ipv6_icmp_echo(void** state)
@@ -664,7 +664,7 @@ static void test_allow_ipv6_icmp_echo(void** state)
 	(void)state;
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv6(PROTO_ICMP6, 0), 1);
+	assert_int_equal(allow_ipv6(PROTO_ICMP6, 0, 0), 1);
 }
 
 static void test_allow_l4_port_allowed(void** state)
@@ -672,21 +672,21 @@ static void test_allow_l4_port_allowed(void** state)
 	(void)state;
 	__u64 mask     = 1ull << 22;
 	mock_map_value = &mask;
-	assert_int_equal(allow_ipv4(PROTO_TCP, 22), 1);
+	assert_int_equal(allow_ipv4(PROTO_TCP, 22, mask), 1);
 
 	__u64 mask6    = 1ull << 53;
 	mock_map_value = &mask6;
-	assert_int_equal(allow_ipv6(PROTO_UDP, 53), 1);
+	assert_int_equal(allow_ipv6(PROTO_UDP, 53, mask6), 1);
 }
 
 static void test_allow_l4_port_denied(void** state)
 {
 	(void)state;
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv4(PROTO_TCP, 62), 0);
+	assert_int_equal(allow_ipv4(PROTO_TCP, 62, 0), 0);
 
 	mock_map_value = NULL;
-	assert_int_equal(allow_ipv6(PROTO_UDP, 60), 0);
+	assert_int_equal(allow_ipv6(PROTO_UDP, 60, 0), 0);
 }
 
 static void test_xdp_blacklist_ipv4_private(void** state)
@@ -732,7 +732,7 @@ static void test_xdp_udp_state_pass(void** state)
 	buf[14] = 0x45;
 	buf[23] = 17;
 
-	assert_int_equal(xdp_udp_state(&ctx), XDP_PASS);
+	assert_int_equal(xdp_state(&ctx), XDP_PASS);
 }
 
 static void test_xdp_tcp_state_pass(void** state)
@@ -747,7 +747,7 @@ static void test_xdp_tcp_state_pass(void** state)
 	buf[23] = 6;	// TCP
 	buf[47] = 0x02; // SYN flag at offset 33 (ETH_HLEN + 20 + 13)
 
-	assert_int_equal(xdp_tcp_state(&ctx), XDP_PASS);
+	assert_int_equal(xdp_state(&ctx), XDP_PASS);
 }
 
 static void test_xdp_udp_state_ipv6(void** state)
@@ -761,7 +761,7 @@ static void test_xdp_udp_state_ipv6(void** state)
 	buf[14] = 0x60;
 	buf[20] = 17; // UDP
 
-	assert_int_equal(xdp_udp_state(&ctx), XDP_PASS);
+	assert_int_equal(xdp_state(&ctx), XDP_PASS);
 }
 
 static void test_xdp_tcp_state_ipv6(void** state)
@@ -776,7 +776,7 @@ static void test_xdp_tcp_state_ipv6(void** state)
 	buf[20] = 6;	// TCP
 	buf[67] = 0x02; // SYN at offset 53 (ETH_HLEN + 40 + 13)
 
-	assert_int_equal(xdp_tcp_state(&ctx), XDP_PASS);
+	assert_int_equal(xdp_state(&ctx), XDP_PASS);
 }
 
 static void test_parse_l2_l3_ipv4(void** state)

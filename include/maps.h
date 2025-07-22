@@ -7,6 +7,7 @@
 
 #ifndef TEST_BUILD
 #include <bpf/bpf_helpers.h>
+#include <linux/in6.h>
 #endif
 
 #ifndef MAP_DEF

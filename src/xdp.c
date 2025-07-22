@@ -1,4 +1,5 @@
-#ifndef TEST_BUILD
+#ifdef TEST_BUILD
+#else
 #include "vmlinux.h"
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
@@ -20,8 +21,7 @@ static inline void bpf_prefetch(const void* p, __u32 a, __u32 b)
 /* Forward declarations for tail-call targets */
 struct xdp_md;
 static int xdp_suricata_gate(struct xdp_md* ctx);
-static int xdp_tcp_state(struct xdp_md* ctx);
-static int xdp_udp_state(struct xdp_md* ctx);
+static int xdp_state(struct xdp_md* ctx);
 
 // Purpose: XDP packet filtering logic
 // Pipeline: clang-format > clang-tidy > custom lint > build > test
@@ -52,10 +52,9 @@ char _license[] SEC("license") = "GPL";
 #define SYN_RATE_LIMIT    20
 #define SYN_BURST_LIMIT   100
 #define RATE_WINDOW_NS    1000000000ULL
-#define TCP_STATE_IDX     8
-#define UDP_STATE_IDX     9
+#define STATE_IDX         8
 #define SURICATA_IDX      6
-/* jmp_table order: panic -> tcp state -> udp state -> suricata */
+/* jmp_table order: panic -> state -> suricata */
 #define PANIC_IDX         1
 #define FAST_CNT_IDX      0
 #define SLOW_CNT_IDX      1
@@ -243,15 +242,16 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &p6, 1);
 	bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 
-	__u8  l4 = (p4 & v4) | (p6 & v6);
-	__u32 is_icmp =
-	    (v4 & eq32(l4, PROTO_ICMP)) | (v6 & eq32(l4, PROTO_ICMP6));
-	__u32 ihl = (vhl & 0x0Fu) << 2;
-	__u32 off = ETH_HLEN + (ihl & v4) + (IPV6_HDR_LEN & v6);
+	__u8  l4      = (p4 & v4) | (p6 & v6);
+	__u32 icmp4   = v4 & eq32(l4, PROTO_ICMP);
+	__u32 icmp6   = v6 & eq32(l4, PROTO_ICMP6);
+	__u32 is_icmp = icmp4 | icmp6;
+	__u32 ihl     = (vhl & 0x0Fu) << 2;
+	__u32 off     = ETH_HLEN + (ihl & v4) + (IPV6_HDR_LEN & v6);
 	bpf_xdp_load_bytes(ctx, (int)off, &type, 1);
 
-	__u32 echo4 = v4 & (!(type ^ 8) | !(type ^ 0));
-	__u32 echo6 = v6 & (!(type ^ 128) | !(type ^ 129));
+	__u32 echo4 = icmp4 & (eq32(type, 0) | eq32(type, 8));
+	__u32 echo6 = icmp6 & (eq32(type, 128) | eq32(type, 129));
 	__u32 drop  = (!hit) & is_icmp & (echo4 | echo6);
 
 	if (!(hit | drop))
@@ -269,29 +269,20 @@ int xdp_panic_flag(struct xdp_md* ctx)
 	return (v && (*v & 1u)) ? XDP_DROP : XDP_PASS;
 }
 
-static __always_inline __u32 port_allowed(__u16 dp)
-{
-	__u32	     key  = 0;
-	const __u64* mask = bpf_map_lookup_elem(&acl_ports, &key);
-	if (!mask)
-		return 0;
-	return (*mask >> dp) & 1u;
-}
-
-static __always_inline __u32
-allow_ipv4(__u8 l4, __u16 dp) // NOLINT(bugprone-easily-swappable-parameters)
+static __always_inline __u32 allow_ipv4(
+    __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
 {
 	__u32 is_icmp = !!eq32(l4, PROTO_ICMP);
 	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	return is_icmp | (l4_ok & port_allowed(dp));
+	return is_icmp | (l4_ok & ((bm >> dp) & 1u));
 }
 
-static __always_inline __u32
-allow_ipv6(__u8 l4, __u16 dp) // NOLINT(bugprone-easily-swappable-parameters)
+static __always_inline __u32 allow_ipv6(
+    __u8 l4, __u16 dp, __u64 bm) // NOLINT(bugprone-easily-swappable-parameters)
 {
 	__u32 is_icmp = !!eq32(l4, PROTO_ICMP6);
 	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
-	return is_icmp | (l4_ok & port_allowed(dp));
+	return is_icmp | (l4_ok & ((bm >> dp) & 1u));
 }
 
 SEC("xdp")
@@ -318,8 +309,12 @@ int xdp_acl(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, (int)(off + 2), &dp, 2);
 	dp = bpf_ntohs(dp);
 
+	__u32	     key = 0;
+	const __u64* m	 = bpf_map_lookup_elem(&acl_ports, &key);
+	__u64	     bm	 = m ? *m : 0;
+
 	__u32 allow =
-	    (is_v4 & allow_ipv4(l4, dp)) | (is_v6 & allow_ipv6(l4, dp));
+	    (is_v4 & allow_ipv4(l4, dp, bm)) | (is_v6 & allow_ipv6(l4, dp, bm));
 
 	__u32 is_icmp =
 	    (is_v4 & eq32(l4, PROTO_ICMP)) | (is_v6 & eq32(l4, PROTO_ICMP6));
@@ -486,9 +481,7 @@ static __always_inline int do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
 	__u8  hit6_tcp = f->hit_tcp_v6 * f->is_ipv6 * f->is_tcp;
 	__u8  hit6_udp = f->hit_udp_v6 * f->is_ipv6 * f->is_udp;
 	__u8  hit_any  = hit4_tcp | hit4_udp | hit6_tcp | hit6_udp;
-	__u32 idx      = hit4_tcp * TCP_STATE_IDX | hit4_udp * UDP_STATE_IDX |
-		    hit6_tcp * TCP_STATE_IDX | hit6_udp * UDP_STATE_IDX |
-		    (!hit_any) * SURICATA_IDX;
+	__u32 idx      = hit_any ? STATE_IDX : SURICATA_IDX;
 	(void)hit_any;
 	bpf_tail_call(ctx, &jmp_table, idx);
 	(void)ctx;
@@ -684,7 +677,7 @@ int xdp_proto_dispatch(struct xdp_md* ctx)
 	update_flows(&d);
 
 	bpf_tail_call(ctx, &jmp_table,
-		      (TCP_STATE_IDX & d.is_tcp) | (UDP_STATE_IDX & d.is_udp) |
+		      (STATE_IDX & (d.is_tcp | d.is_udp)) |
 			  (INVALID_IDX & ~(d.is_tcp | d.is_udp)));
 	return XDP_PASS;
 }
@@ -775,13 +768,11 @@ static __always_inline __u32 check_rate_limit(struct tcp_ctx* t)
 	return store_rl(&k, check, rl) & check;
 }
 
-SEC("xdp")
-int xdp_tcp_state(struct xdp_md* ctx)
+static __always_inline __u32 tcp_state_drop(struct xdp_md* ctx)
 {
 	struct tcp_ctx t = {};
 	parse_packet(ctx, &t);
-	int drop = (int)(check_rate_limit(&t) & 1);
-	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
+	return check_rate_limit(&t) & 1u;
 }
 
 static __always_inline void parse(struct xdp_md* ctx, struct pkt* p)
@@ -849,9 +840,7 @@ static __always_inline __u32 token_bucket_update(struct udp_key* k,
 	bpf_map_update_elem(&udp_rl, k, &upd, BPF_ANY);
 	return drop;
 }
-
-SEC("xdp")
-int xdp_udp_state(struct xdp_md* ctx)
+static __always_inline __u32 udp_state_drop(struct xdp_md* ctx)
 {
 	struct pkt p = {};
 	parse(ctx, &p);
@@ -864,9 +853,13 @@ int xdp_udp_state(struct xdp_md* ctx)
 	ka[1]		   = sa[1] & p.v6;
 	ka[2]		   = sa[2] & p.v6;
 	ka[3]		   = sa[3] & p.v6;
-	__u32	     drop  = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
-	__u32	     fire  = (p.udp != 0) & drop;
-	__s32	     dm	   = -((__s32)fire);
-	unsigned int act   = (XDP_DROP & dm) | (XDP_PASS & ~dm);
-	return (int)act;
+	__u32 drop	   = token_bucket_update(&k, cfg, bpf_ktime_get_ns());
+	return (p.udp != 0) & drop;
+}
+
+SEC("xdp")
+int xdp_state(struct xdp_md* ctx)
+{
+	__u32 drop = tcp_state_drop(ctx) | udp_state_drop(ctx);
+	return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -drop);
 }
