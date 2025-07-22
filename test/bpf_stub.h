@@ -29,6 +29,15 @@ typedef uint32_t __be32;
 typedef uint64_t __u64;
 typedef int32_t	 __s32;
 typedef int64_t	 __s64;
+struct in6_addr {
+	union {
+		__u8  u6_addr8[16];
+		__u16 u6_addr16[8];
+		__u32 u6_addr32[4];
+	} in6_u;
+#define s6_addr   in6_u.u6_addr8
+#define s6_addr32 in6_u.u6_addr32
+};
 
 struct xdp_md {
 	void* data;
@@ -124,17 +133,8 @@ static inline __u32 bpf_ntohl(__u32 x)
 #ifndef BPF_NOEXIST
 #define BPF_NOEXIST 1
 #endif
-#ifndef BPF_F_NO_COMMON_LRU
-#define BPF_F_NO_COMMON_LRU 0
-#endif
-#ifndef BPF_F_RDONLY_PROG
-#define BPF_F_RDONLY_PROG 0
-#endif
 #ifndef BPF_F_NO_PREALLOC
 #define BPF_F_NO_PREALLOC 0
-#endif
-#ifndef BPF_F_ZERO_SEED
-#define BPF_F_ZERO_SEED 0
 #endif
 #ifndef LIBBPF_PIN_BY_NAME
 #define LIBBPF_PIN_BY_NAME 0

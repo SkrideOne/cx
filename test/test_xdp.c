@@ -63,8 +63,6 @@ typedef int64_t	 __s64;
 #define BPF_NOEXIST 1
 #define BPF_F_NO_PREALLOC (1U << 0)
 #define BPF_F_NO_COMMON_LRU (1U << 1)
-#define BPF_F_RDONLY_PROG (1U << 7)
-#define BPF_F_ZERO_SEED (1U << 6)
 #define LIBBPF_PIN_BY_NAME 1
 #define BPF_OK 0
 #define BPF_ERR (-1)
