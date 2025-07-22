@@ -18,10 +18,6 @@ static inline void bpf_prefetch(const void* p, __u32 a, __u32 b)
 #endif
 #endif
 
-/* Forward declarations for tail-call targets */
-struct xdp_md;
-static int xdp_suricata_gate(struct xdp_md* ctx);
-static int xdp_state(struct xdp_md* ctx);
 
 // Purpose: XDP packet filtering logic
 // Pipeline: clang-format > clang-tidy > custom lint > build > test
@@ -31,6 +27,9 @@ static int xdp_state(struct xdp_md* ctx);
 #define MAP_DEF
 #include "maps.h"
 #undef MAP_DEF
+
+struct xdp_md;
+static int xdp_panic_flag(struct xdp_md* ctx);
 
 char _license[] SEC("license") = "GPL";
 
@@ -56,10 +55,8 @@ static __always_inline __u32 parse_ipv6(struct xdp_md*	  ctx,
 #define SYN_RATE_LIMIT    20
 #define SYN_BURST_LIMIT   100
 #define RATE_WINDOW_NS    1000000000ULL
-#define STATE_IDX         8
-#define SURICATA_IDX      6
-/* jmp_table order: panic -> state -> suricata */
 #define PANIC_IDX         1
+/* jmp_table order: panic only */
 #define FAST_CNT_IDX      0
 #define SLOW_CNT_IDX      1
 #define INVALID_IDX       255
@@ -499,20 +496,6 @@ static __always_inline void update_fast_flows(struct flow_ctx* f)
         bpf_map_update_elem(&udp6_flow, &k6_udp, &ts, BPF_ANY);
 }
 
-static __always_inline int do_tailcall(struct xdp_md* ctx, struct flow_ctx* f)
-{
-	__u8  hit4_tcp = f->hit_tcp_v4 * f->is_ipv4 * f->is_tcp;
-	__u8  hit4_udp = f->hit_udp_v4 * f->is_ipv4 * f->is_udp;
-	__u8  hit6_tcp = f->hit_tcp_v6 * f->is_ipv6 * f->is_tcp;
-	__u8  hit6_udp = f->hit_udp_v6 * f->is_ipv6 * f->is_udp;
-	__u8  hit_any  = hit4_tcp | hit4_udp | hit6_tcp | hit6_udp;
-	__u32 idx      = hit_any ? STATE_IDX : SURICATA_IDX;
-	(void)hit_any;
-	bpf_tail_call(ctx, &jmp_table, idx);
-	(void)ctx;
-	(void)idx;
-	return -1;
-}
 
 SEC("xdp")
 int xdp_flow_fastpath(struct xdp_md* ctx)

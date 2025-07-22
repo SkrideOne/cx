@@ -34,10 +34,9 @@ typedef int64_t	 __s64;
 #define __uint(name, val)
 #define __type(name, val)
 #define __array(name, val)
-#define STATE_IDX 8
-#define SURICATA_IDX 6
 
 // Test-specific definitions
+#define PANIC_IDX 1
 #define XDP_PASS 2
 #define XDP_DROP 1
 #define ETH_HLEN 14
@@ -262,12 +261,8 @@ static void wl_reset(void)
 
 #define bpf_tail_call(ctx, map, idx)                                          \
     do {                                                                      \
-        if (tailcall_enable) {                                                \
-            if ((idx) == STATE_IDX)                                           \
-                return xdp_state(ctx);                                        \
-            else if ((idx) == SURICATA_IDX)                                   \
-                return xdp_suricata_gate(ctx);                                \
-        }                                                                     \
+        if (tailcall_enable && (idx) == PANIC_IDX)                            \
+            return xdp_panic_flag(ctx);                                       \
     } while (0)
 #define __atomic_fetch_add(ptr, val, order) ({ \
         __typeof__(*(ptr)) old = *(ptr); \
