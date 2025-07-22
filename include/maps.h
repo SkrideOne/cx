@@ -104,23 +104,25 @@ struct wl_map {
 };
 MAP_EXTERN struct wl_map whitelist_map MAP_SEC(".maps");
 
-/* Flow tables - percpu arrays for speed */
+/* Flow tables - LRU hash */
 
 struct ids_flow_v4_map {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__uint(max_entries, FLOW_TAB_SZ);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__type(key, __u32);
-	__type(value, struct bypass_v4);
+        __uint(type, BPF_MAP_TYPE_LRU_HASH);
+        __uint(max_entries, 262144);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __uint(pinning, LIBBPF_PIN_BY_NAME);
+        __type(key, struct flow_key);
+        __type(value, __u8);
 };
 MAP_EXTERN struct ids_flow_v4_map flow_table_v4 MAP_SEC(".maps");
 
 struct ids_flow_v6_map {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__uint(max_entries, FLOW_TAB_SZ);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__type(key, __u32);
-	__type(value, struct bypass_v6);
+        __uint(type, BPF_MAP_TYPE_LRU_HASH);
+        __uint(max_entries, 262144);
+        __uint(map_flags, BPF_F_NO_COMMON_LRU);
+        __uint(pinning, LIBBPF_PIN_BY_NAME);
+        __type(key, struct bypass_v6);
+        __type(value, __u8);
 };
 MAP_EXTERN struct ids_flow_v6_map flow_table_v6 MAP_SEC(".maps");
 

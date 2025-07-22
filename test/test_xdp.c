@@ -119,7 +119,7 @@ static void*	     mock_map_seq[8];
 static int	     mock_map_idx;
 static int	     use_seq;
 static unsigned char mock_storage[64];
-static __u32         mock_key;
+static unsigned char mock_key[64];
 static int	     tailcall_enable;
 
 #ifndef BPF_STUB_H
@@ -186,8 +186,8 @@ static inline long bpf_map_delete_elem(void* map, const void* key)
                         }
                 return BPF_ERR;
         }
-        memcpy(&mock_key, key, sizeof(mock_key));
-        mock_map_value = &mock_key;
+       memcpy(mock_key, key, sizeof(mock_key));
+       mock_map_value = mock_key;
         return BPF_OK;
 }
 
@@ -739,9 +739,8 @@ static void test_xdp_blacklist_ipv4_private(void** state)
        assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
        struct flow_key k4 = {};
        parse_ipv4(&ctx, &k4);
-       __u32 idx = idx_v4(&k4);
        assert_non_null(mock_map_value);
-       assert_int_equal(*(__u32*)mock_map_value, idx);
+       assert_memory_equal(mock_map_value, &k4, sizeof(k4));
 }
 
 static void test_xdp_blacklist_ipv4_public(void** state)
@@ -781,9 +780,8 @@ static void test_xdp_blacklist_ipv6_ula(void** state)
        assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
        struct bypass_v6 k6 = {};
        parse_ipv6(&ctx, &k6);
-       __u32 idx = idx_v6(&k6);
        assert_non_null(mock_map_value);
-       assert_int_equal(*(__u32*)mock_map_value, idx);
+       assert_memory_equal(mock_map_value, &k6, sizeof(k6));
 }
 
 static void test_xdp_udp_state_pass(void** state)
