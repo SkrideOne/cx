@@ -649,15 +649,6 @@ static void test_xdp_acl_icmpv6_redirect_denied(void** state)
 static void test_allow_ipv4_icmp_echo(void** state)
 {
 	(void)state;
-	unsigned char buf[64] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
-
-	buf[12] = 0x08;
-	buf[13] = 0x00; // IPv4
-	buf[14] = 0x45;
-	buf[23] = PROTO_ICMP;
-	buf[34] = 8; // echo
-	buf[35] = 0;
 
 	mock_map_value = NULL;
 	assert_int_equal(allow_ipv4(PROTO_ICMP, 0), 1);
@@ -666,15 +657,6 @@ static void test_allow_ipv4_icmp_echo(void** state)
 static void test_allow_ipv6_icmp_echo(void** state)
 {
 	(void)state;
-	unsigned char buf[80] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
-
-	buf[12] = 0x86;
-	buf[13] = 0xdd; // IPv6
-	buf[14] = 0x60;
-	buf[20] = PROTO_ICMP6;
-	buf[54] = 128; // echo request
-	buf[55] = 0;
 
 	mock_map_value = NULL;
 	assert_int_equal(allow_ipv6(PROTO_ICMP6, 0), 1);
@@ -683,29 +665,9 @@ static void test_allow_ipv6_icmp_echo(void** state)
 static void test_allow_l4_port_allowed(void** state)
 {
 	(void)state;
-	unsigned char buf4[80] = {0};
-	struct xdp_md ctx4 = {.data = buf4, .data_end = buf4 + sizeof(buf4)};
-
-	buf4[12] = 0x08;
-	buf4[13] = 0x00; // IPv4
-	buf4[14] = 0x45;
-	buf4[23] = PROTO_TCP;
-	buf4[36] = 0x00;
-	buf4[37] = 22; // port 22
-
 	__u64 mask     = 1ull << 22;
 	mock_map_value = &mask;
 	assert_int_equal(allow_ipv4(PROTO_TCP, 22), 1);
-
-	unsigned char buf6[100] = {0};
-	struct xdp_md ctx6 = {.data = buf6, .data_end = buf6 + sizeof(buf6)};
-
-	buf6[12] = 0x86;
-	buf6[13] = 0xdd; // IPv6
-	buf6[14] = 0x60;
-	buf6[20] = PROTO_UDP;
-	buf6[56] = 0x00;
-	buf6[57] = 0x35; // port 53
 
 	__u64 mask6    = 1ull << 53;
 	mock_map_value = &mask6;
@@ -715,28 +677,8 @@ static void test_allow_l4_port_allowed(void** state)
 static void test_allow_l4_port_denied(void** state)
 {
 	(void)state;
-	unsigned char buf4[80] = {0};
-	struct xdp_md ctx4 = {.data = buf4, .data_end = buf4 + sizeof(buf4)};
-
-	buf4[12] = 0x08;
-	buf4[13] = 0x00; // IPv4
-	buf4[14] = 0x45;
-	buf4[23] = PROTO_TCP;
-	buf4[36] = 0x01;
-	buf4[37] = 62; // port 62
-
 	mock_map_value = NULL;
 	assert_int_equal(allow_ipv4(PROTO_TCP, 62), 0);
-
-	unsigned char buf6[100] = {0};
-	struct xdp_md ctx6 = {.data = buf6, .data_end = buf6 + sizeof(buf6)};
-
-	buf6[12] = 0x86;
-	buf6[13] = 0xdd; // IPv6
-	buf6[14] = 0x60;
-	buf6[20] = PROTO_UDP;
-	buf6[56] = 0x00;
-	buf6[57] = 60; // port 60
 
 	mock_map_value = NULL;
 	assert_int_equal(allow_ipv6(PROTO_UDP, 60), 0);
