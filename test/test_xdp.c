@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef BPF_STUB_H
 // Basic type definitions for tests
 typedef uint8_t	 __u8;
 typedef uint16_t __u16;
@@ -84,6 +85,7 @@ struct in6_addr {
 #define s6_addr32 in6_u.u6_addr32
 };
 
+#endif /* BPF_STUB_H */
 #define TEST_BUILD
 #include "../include/maps.h"
 
@@ -119,6 +121,7 @@ static int	     use_seq;
 static unsigned char mock_storage[64];
 static int	     tailcall_enable;
 
+#ifndef BPF_STUB_H
 static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 				     __u32 len)
 {
@@ -126,12 +129,6 @@ static inline int bpf_xdp_load_bytes(struct xdp_md* ctx, int off, void* to,
 		return BPF_ERR;
 	memcpy(to, (char*)ctx->data + off, len);
 	return BPF_OK;
-}
-
-static void wl_reset(void)
-{
-	for (int i = 0; i < WL_CAP; ++i)
-		wl_tab[i].used = 0;
 }
 
 static inline void* bpf_map_lookup_elem(void* map, const void* key)
@@ -225,6 +222,12 @@ static inline __u32 bpf_ntohl(__u32 x)
 	return bpf_htonl(x);
 }
 
+#endif /* BPF_STUB_H */
+static void wl_reset(void)
+{
+	for (int i = 0; i < WL_CAP; ++i)
+		wl_tab[i].used = 0;
+}
 #define bpf_probe_read_kernel(dest, size, src) \
 	({ \
 		if (src) \
