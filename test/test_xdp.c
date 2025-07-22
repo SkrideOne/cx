@@ -87,7 +87,7 @@ struct in6_addr {
 // Dummy map instances for tests
 struct jmp_table_map   jmp_table;
 struct panic_flag_map  panic_flag;
-struct wl_map	       WL_MAP;
+struct wl_map	whitelist_map;
 struct ids_flow_v4_map flow_table_v4;
 struct ids_flow_v6_map flow_table_v6;
 struct acl_port_map    acl_ports;
@@ -134,7 +134,7 @@ static inline void* bpf_map_lookup_elem(void* map, const void* key)
 {
 	if (use_seq)
 		return mock_map_seq[mock_map_idx++];
-	if (map == &WL_MAP) {
+	if (map == &whitelist_map) {
 		const struct wl_v6_key* k = key;
 		for (int i = 0; i < WL_CAP; ++i)
 			if (wl_tab[i].used &&
@@ -148,7 +148,7 @@ static inline void* bpf_map_lookup_elem(void* map, const void* key)
 static inline long bpf_map_update_elem(void* map, const void* key,
 				       const void* val, __u64 flags)
 {
-	if (map == &WL_MAP) {
+	if (map == &whitelist_map) {
 		const struct wl_v6_key* k = key;
 		const __u8*		v = val;
 		for (int i = 0; i < WL_CAP; ++i)
@@ -174,7 +174,7 @@ static inline long bpf_map_update_elem(void* map, const void* key,
 
 static inline long bpf_map_delete_elem(void* map, const void* key)
 {
-	if (map == &WL_MAP) {
+	if (map == &whitelist_map) {
 		const struct wl_v6_key* k = key;
 		for (int i = 0; i < WL_CAP; ++i)
 			if (wl_tab[i].used &&
@@ -690,7 +690,7 @@ static void test_dynamic_wl(void** state)
 		__u32 ip	    = bpf_htonl(0x0a000001 + i);
 		k.addr.s6_addr32[0] = ip;
 		assert_int_equal(
-		    bpf_map_update_elem(&WL_MAP, &k, &one, BPF_ANY), BPF_OK);
+		    bpf_map_update_elem(&whitelist_map, &k, &one, BPF_ANY), BPF_OK);
 	}
 
 	unsigned char buf[64] = {0};
@@ -704,13 +704,13 @@ static void test_dynamic_wl(void** state)
 
 	__u8 flag      = 1;
 	mock_map_value = &flag;
-	assert_int_equal(bpf_map_delete_elem(&WL_MAP, &k), BPF_OK);
+	assert_int_equal(bpf_map_delete_elem(&whitelist_map, &k), BPF_OK);
 	xdp_wl_pass(&ctx);
 	assert_int_equal(xdp_panic_flag(&ctx), XDP_DROP);
 
 	k.addr.s6_addr32[0] = bpf_htonl(0x0a000041);
 	memcpy(buf + ETH_HLEN + 12, &k.addr.s6_addr32[0], 4);
-	assert_int_equal(bpf_map_update_elem(&WL_MAP, &k, &one, BPF_ANY),
+	assert_int_equal(bpf_map_update_elem(&whitelist_map, &k, &one, BPF_ANY),
 			 BPF_OK);
 
 	assert_int_equal(xdp_wl_pass(&ctx), XDP_PASS);

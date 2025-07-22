@@ -35,14 +35,8 @@ char _license[] SEC("license") = "GPL";
 #define TCP_STATE_IDX     8
 #define UDP_STATE_IDX     9
 #define SURICATA_IDX      6
-/* jmp_table layout: whitelist -> panic -> ACL -> blacklist -> flow -> dispatch
- */
-#define WL_PASS_IDX       0
+/* jmp_table order: panic -> tcp state -> udp state -> suricata */
 #define PANIC_IDX         1
-#define ACL_IDX           2
-#define BL_IDX            3
-#define FLOW_IDX          4
-#define DISPATCH_IDX      5
 #define FAST_CNT_IDX      0
 #define SLOW_CNT_IDX      1
 #define INVALID_IDX       255
@@ -202,18 +196,6 @@ static __always_inline void count_slow(void)
 		__atomic_fetch_add(v, 1, __ATOMIC_RELAXED);
 }
 
-/* Whitelist management helpers */
-static __always_inline void wl_add(const struct wl_v6_key* k)
-{
-	__u8 one = 1;
-	bpf_map_update_elem(&WL_MAP, k, &one, BPF_ANY);
-}
-
-static __always_inline void wl_del(const struct wl_v6_key* k)
-{
-	bpf_map_delete_elem(&WL_MAP, k);
-}
-
 SEC("xdp")
 int xdp_wl_pass(struct xdp_md* ctx)
 {
@@ -234,8 +216,8 @@ int xdp_wl_pass(struct xdp_md* ctx)
 		bpf_xdp_load_bytes(ctx, ETH_HLEN + 8, &k6.addr, 16);
 
 	/* 3. lookup */
-	bool hit = (v4 && bpf_map_lookup_elem(&WL_MAP, &k4)) ||
-		   (v6 && bpf_map_lookup_elem(&WL_MAP, &k6));
+        bool hit = (v4 && bpf_map_lookup_elem(&whitelist_map, &k4)) ||
+                   (v6 && bpf_map_lookup_elem(&whitelist_map, &k6));
 
 	if (hit)
 		return XDP_PASS;

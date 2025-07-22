@@ -44,7 +44,7 @@ int main(int argc, char **argv)
         }
     }
 
-    int fd = bpf_obj_get("/sys/fs/bpf/WL_MAP");
+    int fd = bpf_obj_get("/sys/fs/bpf/whitelist_map");
     if (fd < 0) {
         perror("bpf_obj_get");
         return 1;
