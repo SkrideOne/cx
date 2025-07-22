@@ -833,15 +833,31 @@ static void test_suricata_gate_bad_ipv6(void** state)
 
 static void test_suricata_gate_bad_ipv4(void** state)
 {
-	(void)state;
-	unsigned char buf[40] = {0};
-	struct xdp_md ctx     = {.data = buf, .data_end = buf + 30};
+        (void)state;
+        unsigned char buf[40] = {0};
+        struct xdp_md ctx     = {.data = buf, .data_end = buf + 30};
 
 	buf[12] = 0x08;
 	buf[13] = 0x00;
 	buf[14] = 0x45;
 
-	assert_int_equal(xdp_suricata_gate(&ctx), XDP_PASS);
+        assert_int_equal(xdp_suricata_gate(&ctx), XDP_PASS);
+}
+
+static void test_suricata_gate_global_bypass(void** state)
+{
+        (void)state;
+        unsigned char buf[64] = {0};
+        struct xdp_md ctx     = {.data = buf, .data_end = buf + sizeof(buf)};
+
+        buf[12] = 0x08;
+        buf[13] = 0x00;
+        buf[14] = 0x45;
+
+        static __u8 flag = 1;
+        mock_map_value = &flag;
+        assert_int_equal(xdp_suricata_gate(&ctx), XDP_PASS);
+        mock_map_value = NULL;
 }
 
 static void test_panic_flag_drop(void** state)
@@ -1148,10 +1164,11 @@ int main(void)
 	    cmocka_unit_test(test_xdp_udp_state_ipv6),
 	    cmocka_unit_test(test_xdp_tcp_state_ipv6),
 	    cmocka_unit_test(test_parse_l2_l3_ipv4),
-	    cmocka_unit_test(test_parse_l2_l3_ipv6),
-	    cmocka_unit_test(test_suricata_gate_bad_ipv6),
-	    cmocka_unit_test(test_suricata_gate_bad_ipv4),
-	    cmocka_unit_test(test_panic_flag_drop),
+            cmocka_unit_test(test_parse_l2_l3_ipv6),
+            cmocka_unit_test(test_suricata_gate_bad_ipv6),
+            cmocka_unit_test(test_suricata_gate_bad_ipv4),
+            cmocka_unit_test(test_suricata_gate_global_bypass),
+            cmocka_unit_test(test_panic_flag_drop),
 	    cmocka_unit_test(test_dynamic_wl),
 	    cmocka_unit_test(test_fastpath_counter),
 	    cmocka_unit_test(test_slowpath_counter),

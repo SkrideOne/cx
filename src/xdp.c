@@ -593,8 +593,13 @@ static __always_inline __u32 drop_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
 SEC("xdp")
 int xdp_suricata_gate(struct xdp_md* ctx)
 {
-	__u16 proto = 0;
-	__u32 drop  = 0;
+        __u32 idx = 0;
+        const __u8* bypass = bpf_map_lookup_elem(&global_bypass, &idx);
+        if (bypass && *bypass == 1)
+                return XDP_PASS;
+
+        __u16 proto = 0;
+        __u32 drop  = 0;
 
 	bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &proto, 2);
 

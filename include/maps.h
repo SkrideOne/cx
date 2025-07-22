@@ -84,6 +84,17 @@ struct panic_flag_map {
 };
 MAP_EXTERN struct panic_flag_map panic_flag MAP_SEC(".maps");
 
+/* Global Suricata bypass flag */
+struct global_bypass_map {
+        __uint(type, BPF_MAP_TYPE_ARRAY);
+        __uint(max_entries, 1);
+        __uint(pinning, LIBBPF_PIN_BY_NAME);
+        __uint(map_flags, BPF_F_RDONLY_PROG);
+        __type(key, __u32);
+        __type(value, __u8);
+};
+MAP_EXTERN struct global_bypass_map global_bypass MAP_SEC(".maps");
+
 /* Whitelist - dynamic, managed from user space */
 struct wl_map {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -221,10 +232,13 @@ struct udp6_flow_map {
 };
 struct icmp_allow_map {
 };
+struct global_bypass_map {
+};
 
 // Dummy map instances
 MAP_EXTERN struct jmp_table_map	  jmp_table;
 MAP_EXTERN struct panic_flag_map  panic_flag;
+MAP_EXTERN struct global_bypass_map global_bypass;
 MAP_EXTERN struct wl_map	  whitelist_map;
 MAP_EXTERN struct ids_flow_v4_map flow_table_v4;
 MAP_EXTERN struct ids_flow_v6_map flow_table_v6;
