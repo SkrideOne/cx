@@ -155,7 +155,7 @@ static inline void* bpf_map_lookup_elem(void* map, const void* key)
 }
 
 static inline long bpf_map_update_elem(void* map, const void* key,
-				       const void* val, __u64 flags)
+                                       const void* val, __u64 flags)
 {
 	if (map == &whitelist_map) {
 		const struct wl_v6_key* k = key;
@@ -175,7 +175,10 @@ static inline long bpf_map_update_elem(void* map, const void* key,
 			}
 		return BPF_ERR;
 	}
-        (void)key;
+        if (map == &flow_table_v4 || map == &flow_table_v6)
+                memcpy(&mock_key, key, sizeof(mock_key));
+        else
+                (void)key;
         (void)flags;
         size_t len = sizeof(mock_storage);
         if (map == &tcp_flow || map == &udp_flow || map == &tcp6_flow ||
@@ -848,13 +851,14 @@ static void test_xdp_blacklist_ipv4_private(void** state)
 	buf[28] = 0;
 	buf[29] = 1;
 
-	mock_map_value = NULL;
-	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
+        mock_map_value = NULL;
+        assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
         struct flow_key k4 = {};
         parse_ipv4(&ctx, &k4);
         __u32 idx = idx_v4(&k4);
-        assert_non_null(mock_map_value);
-        assert_int_equal(*(__u32*)mock_map_value, idx);
+        assert_int_equal(mock_key, idx);
+        const struct bypass_v4 zero = {};
+        assert_memory_equal(mock_map_value, &zero, sizeof(zero));
 }
 
 static void test_xdp_blacklist_ipv4_public(void** state)
@@ -890,13 +894,14 @@ static void test_xdp_blacklist_ipv6_ula(void** state)
 	buf[54] = 0x12;
 	buf[55] = 0x34;
 
-	mock_map_value = NULL;
-	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
+        mock_map_value = NULL;
+        assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
         struct bypass_v6 k6 = {};
         parse_ipv6(&ctx, &k6);
         __u32 idx = idx_v6(&k6);
-        assert_non_null(mock_map_value);
-        assert_int_equal(*(__u32*)mock_map_value, idx);
+        assert_int_equal(mock_key, idx);
+        const struct bypass_v6 zero = {};
+        assert_memory_equal(mock_map_value, &zero, sizeof(zero));
 }
 
 static void test_xdp_udp_state_pass(void** state)

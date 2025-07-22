@@ -378,16 +378,18 @@ int xdp_blacklist(struct xdp_md* ctx)
        __u32 hit6 = bl_ipv6_hit(ctx, proto);
        __u32 hit  = hit4 | hit6;
 
-       struct flow_key k4 = {};
+        struct flow_key k4 = {};
         if (hit4 && !parse_ipv4(ctx, &k4)) {
-                __u32 idx = idx_v4(&k4);
-                bpf_map_delete_elem(&flow_table_v4, &idx);
+                __u32        idx  = idx_v4(&k4);
+                struct bypass_v4 z = {};
+                bpf_map_update_elem(&flow_table_v4, &idx, &z, BPF_ANY);
         }
 
-       struct bypass_v6 k6 = {};
+        struct bypass_v6 k6 = {};
         if (hit6 && !parse_ipv6(ctx, &k6)) {
-                __u32 idx = idx_v6(&k6);
-                bpf_map_delete_elem(&flow_table_v6, &idx);
+                __u32        idx  = idx_v6(&k6);
+                struct bypass_v6 z = {};
+                bpf_map_update_elem(&flow_table_v6, &idx, &z, BPF_ANY);
         }
 
        return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -hit);
