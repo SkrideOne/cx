@@ -118,7 +118,7 @@ static void*	     mock_map_seq[8];
 static int	     mock_map_idx;
 static int	     use_seq;
 static unsigned char mock_storage[64];
-static unsigned char mock_key[64];
+static __u32 mock_key;
 static int	     tailcall_enable;
 
 static inline void copy_bytes(void* dst, const void* src, size_t len)
@@ -198,15 +198,8 @@ static inline long bpf_map_delete_elem(void* map, const void* key)
 			}
 		return BPF_ERR;
 	}
-        size_t len = sizeof(mock_key);
-        if (map == &flow_table_v4 || map == &tcp_flow || map == &udp_flow)
-                len = sizeof(struct flow_key);
-        else if (map == &flow_table_v6)
-                len = sizeof(struct bypass_v6);
-        else if (map == &tcp6_flow || map == &udp6_flow)
-                len = sizeof(struct ids_flow_v6_key);
-        copy_bytes(mock_key, key, len);
-        mock_map_value = mock_key;
+        memcpy(&mock_key, key, sizeof(mock_key));
+        mock_map_value = &mock_key;
         return BPF_OK;
 }
 
@@ -857,10 +850,11 @@ static void test_xdp_blacklist_ipv4_private(void** state)
 
 	mock_map_value = NULL;
 	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
-	struct flow_key k4 = {};
-	parse_ipv4(&ctx, &k4);
-	assert_non_null(mock_map_value);
-	assert_memory_equal(mock_map_value, &k4, sizeof(k4));
+        struct flow_key k4 = {};
+        parse_ipv4(&ctx, &k4);
+        __u32 idx = idx_v4(&k4);
+        assert_non_null(mock_map_value);
+        assert_int_equal(*(__u32*)mock_map_value, idx);
 }
 
 static void test_xdp_blacklist_ipv4_public(void** state)
@@ -898,10 +892,11 @@ static void test_xdp_blacklist_ipv6_ula(void** state)
 
 	mock_map_value = NULL;
 	assert_int_equal(xdp_blacklist(&ctx), XDP_DROP);
-	struct bypass_v6 k6 = {};
-	parse_ipv6(&ctx, &k6);
-	assert_non_null(mock_map_value);
-	assert_memory_equal(mock_map_value, &k6, sizeof(k6));
+        struct bypass_v6 k6 = {};
+        parse_ipv6(&ctx, &k6);
+        __u32 idx = idx_v6(&k6);
+        assert_non_null(mock_map_value);
+        assert_int_equal(*(__u32*)mock_map_value, idx);
 }
 
 static void test_xdp_udp_state_pass(void** state)

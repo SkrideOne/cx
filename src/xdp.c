@@ -379,12 +379,16 @@ int xdp_blacklist(struct xdp_md* ctx)
        __u32 hit  = hit4 | hit6;
 
        struct flow_key k4 = {};
-        if (hit4 && !parse_ipv4(ctx, &k4))
-                bpf_map_delete_elem(&flow_table_v4, &k4);
+        if (hit4 && !parse_ipv4(ctx, &k4)) {
+                __u32 idx = idx_v4(&k4);
+                bpf_map_delete_elem(&flow_table_v4, &idx);
+        }
 
        struct bypass_v6 k6 = {};
-        if (hit6 && !parse_ipv6(ctx, &k6))
-                bpf_map_delete_elem(&flow_table_v6, &k6);
+        if (hit6 && !parse_ipv6(ctx, &k6)) {
+                __u32 idx = idx_v6(&k6);
+                bpf_map_delete_elem(&flow_table_v6, &idx);
+        }
 
        return XDP_PASS ^ ((XDP_PASS ^ XDP_DROP) & -hit);
 }
@@ -553,21 +557,45 @@ static __always_inline __u32 parse_ipv6(struct xdp_md*	  ctx,
 	return err;
 }
 
+static __always_inline int match_bypass_ipv4(const struct bypass_v4* v,
+                                             const struct flow_key*  k)
+{
+        return v && v->saddr == k->saddr && v->daddr == k->daddr &&
+               v->sport == k->sport && v->dport == k->dport &&
+               v->proto == k->proto;
+}
+
+static __always_inline int match_bypass_ipv6(const struct bypass_v6* v,
+                                             const struct bypass_v6* k)
+{
+        return v && !__builtin_memcmp(v->saddr, k->saddr, 16) &&
+               !__builtin_memcmp(v->daddr, k->daddr, 16) &&
+               v->sport == k->sport && v->dport == k->dport &&
+               v->proto == k->proto;
+}
+
 static __always_inline __u32 bl_ipv4_suricata(struct xdp_md* ctx, __u32 is_v4)
 {
-        struct flow_key k = {};
-        __u32 ok  = !parse_ipv4(ctx, &k);
-        __u32 hit = !!bpf_map_lookup_elem(&flow_table_v4, &k);
+        struct flow_key   k   = {};
+        __u32             ok  = !parse_ipv4(ctx, &k);
+        __u32             idx = idx_v4(&k);
+        struct bypass_v4* v   =
+            bpf_map_lookup_percpu_elem(&flow_table_v4, &idx, 0);
+        __u32 hit = match_bypass_ipv4(v, &k);
         return (is_v4 & ok) & (hit ^ 1);
 }
 
 static __always_inline __u32 bl_ipv6_suricata(struct xdp_md* ctx, __u32 is_v6)
 {
-        struct bypass_v6 k = {};
-        __u32 ok  = !parse_ipv6(ctx, &k);
-        __u32 hit = !!bpf_map_lookup_elem(&flow_table_v6, &k);
+        struct bypass_v6  k   = {};
+        __u32             ok  = !parse_ipv6(ctx, &k);
+        __u32             idx = idx_v6(&k);
+        struct bypass_v6* v   =
+            bpf_map_lookup_percpu_elem(&flow_table_v6, &idx, 0);
+        __u32 hit = match_bypass_ipv6(v, &k);
         return (is_v6 & ok) & (hit ^ 1);
 }
+
 
 SEC("xdp")
 int xdp_suricata_gate(struct xdp_md* ctx)
