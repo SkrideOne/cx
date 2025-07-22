@@ -53,16 +53,16 @@ char _license[] SEC("license") = "GPL";
 struct rate_limit {
 	__u64 window_start;
 	__u32 syn_count;
-};
+} __attribute__((aligned(64)));
 
 struct ip_key {
 	__u8		is_v6;
 	__u8		pad[3];
 	struct in6_addr addr;
-};
+} __attribute__((aligned(64)));
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
 	__uint(max_entries, 16384);
 	__type(key, struct ip_key);
 	__type(value, struct rate_limit);
@@ -85,12 +85,12 @@ struct udp_key {
 struct udp_meta {
 	__u64 last_seen;
 	__u32 tokens;
-};
+} __attribute__((aligned(64)));
 
 struct rl_cfg {
 	__u64 ns;
 	__u32 br;
-};
+} __attribute__((aligned(64)));
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -100,7 +100,7 @@ struct {
 } cfg_map SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
 	__uint(max_entries, 65536);
 	__uint(map_flags, BPF_F_NO_COMMON_LRU);
 	__type(key, struct udp_key);
@@ -206,8 +206,8 @@ int xdp_wl_pass(struct xdp_md* ctx)
 	if (bpf_xdp_load_bytes(ctx, ETH_HLEN - 2, &eth, 2))
 		return XDP_DROP;
 
-	__u32 v4 = eth == bpf_htons(ETH_P_IP);
-	__u32 v6 = eth == bpf_htons(ETH_P_IPV6);
+	__u32 v4 = eq32(eth, ETH_P_IP_BE);
+	__u32 v6 = eq32(eth, ETH_P_IPV6_BE);
 
 	/* 2. src address */
 	struct wl_v6_key k4 = {.family = AF_INET};
@@ -255,41 +255,18 @@ static __always_inline __u32 port_allowed(__u16 dp)
 	return !!bpf_map_lookup_elem(&acl_ports, &dp);
 }
 
-static __always_inline __u32 allow_ipv4(struct xdp_md* ctx, __u16 proto)
+static __always_inline __u32 allow_ipv4(__u8 l4, __u16 dp)
 {
-	__u32 err = proto ^ bpf_htons(ETH_P_IP);
-	__u8  vhl = 0, l4 = 0;
-
-	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
-	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 9, &l4, 1);
-
-	__u32 ihl = (vhl & 0x0Fu) << 2;
-	__u16 dp  = 0;
-
-	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + ihl + 2, &dp, 2);
-	dp = bpf_ntohs(dp);
-
-	__u32 is_icmp = !(l4 ^ PROTO_ICMP);
-	__u32 l4_ok   = !(l4 ^ PROTO_TCP) | !(l4 ^ PROTO_UDP);
-
-	return (!err) & (is_icmp | (l4_ok & port_allowed(dp)));
+	__u32 is_icmp = !!eq32(l4, PROTO_ICMP);
+	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
+	return is_icmp | (l4_ok & port_allowed(dp));
 }
 
-static __always_inline __u32 allow_ipv6(struct xdp_md* ctx, __u16 proto)
+static __always_inline __u32 allow_ipv6(__u8 l4, __u16 dp)
 {
-	__u32 err = proto ^ bpf_htons(ETH_P_IPV6);
-	__u8  nh  = 0;
-
-	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &nh, 1);
-
-	__u16 dp = 0;
-	err |= bpf_xdp_load_bytes(ctx, ETH_HLEN + 42, &dp, 2);
-	dp = bpf_ntohs(dp);
-
-	__u32 is_icmp = !(nh ^ PROTO_ICMP6);
-	__u32 l4_ok   = !(nh ^ PROTO_TCP) | !(nh ^ PROTO_UDP);
-
-	return (!err) & (is_icmp | (l4_ok & port_allowed(dp)));
+	__u32 is_icmp = !!eq32(l4, PROTO_ICMP6);
+	__u32 l4_ok   = !!eq32(l4, PROTO_TCP) | !!eq32(l4, PROTO_UDP);
+	return is_icmp | (l4_ok & port_allowed(dp));
 }
 
 SEC("xdp")
@@ -303,23 +280,29 @@ int xdp_acl(struct xdp_md* ctx)
 	bpf_xdp_load_bytes(ctx, ETH_HLEN + 6, &pr6, 1);
 	bpf_xdp_load_bytes(ctx, ETH_HLEN, &vhl, 1);
 
-	__u8 is_v4 = !(proto ^ bpf_htons(ETH_P_IP));
-	__u8 is_v6 = !(proto ^ bpf_htons(ETH_P_IPV6));
+	__u8 is_v4 = eq32(proto, ETH_P_IP_BE);
+	__u8 is_v6 = eq32(proto, ETH_P_IPV6_BE);
 
 	__u8  l4     = (pr4 & -is_v4) | (pr6 & -is_v6);
 	__u8  family = AF_INET * is_v4 + AF_INET6 * is_v6;
 	__u32 ihl    = (vhl & 0x0Fu) << 2;
 	__u32 off    = ETH_HLEN + (ihl & -is_v4) + (IPV6_HDR_LEN & -is_v6);
 
-	__u32 allow = allow_ipv4(ctx, proto) | allow_ipv6(ctx, proto);
+	__u16 dp = 0;
+	bpf_xdp_load_bytes(ctx, off + 2, &dp, 2);
+	dp = bpf_ntohs(dp);
+
+	__u32 allow =
+	    (is_v4 & allow_ipv4(l4, dp)) | (is_v6 & allow_ipv6(l4, dp));
+
 	__u32 is_icmp =
-	    (!(l4 ^ PROTO_ICMP) & is_v4) | (!(l4 ^ PROTO_ICMP6) & is_v6);
+	    (is_v4 & eq32(l4, PROTO_ICMP)) | (is_v6 & eq32(l4, PROTO_ICMP6));
 	__u8 type = 0, code = 0;
 	bpf_xdp_load_bytes(ctx, off, &type, 1);
 	bpf_xdp_load_bytes(ctx, off + 1, &code, 1);
 
-	__u32 echo4   = is_v4 & (!(type ^ 0) | !(type ^ 8));
-	__u32 echo6   = is_v6 & (!(type ^ 128) | !(type ^ 129));
+	__u32 echo4   = is_v4 & (eq32(type, 0) | eq32(type, 8));
+	__u32 echo6   = is_v6 & (eq32(type, 128) | eq32(type, 129));
 	__u32 is_echo = is_icmp & (echo4 | echo6);
 
 	struct icmp_key k = {family, type, code};
