@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# AGENTS.md – Development Pipeline for Rust 1.90 Nightly (2025)
+# AGENTS.md – Development Pipeline for Rust 1.91 Nightly (2025)
 
 This document defines the step‑by‑step workflow that an **LLM agent** must follow when writing Rust code.
 
@@ -28,7 +28,7 @@ This document defines the step‑by‑step workflow that an **LLM agent** must f
    A Makefile is not pre‑supplied; it must be created and evolved during the work in accordance with *Best Practice 2025 Makefile*.
    The Makefile **MUST** expose and always run the following targets:
 
-    * `lint`   – Clippy, cargo‑deny, rust‑fmt check, etc.
+    * `lint`   – Clippy, rust‑fmt check, etc.
     * `fmt`    – Automatic formatting (`cargo fmt`).
     * `bench`  – Benchmarks (`cargo bench` or Criterion).
     * `test`   – Unit & integration tests (prefer `cargo nextest run`).
