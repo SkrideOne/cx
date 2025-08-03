@@ -21,7 +21,6 @@ normalize_doc_attributes = true
 
 # --- Expression & layout heuristics ------------------------------
 overflow_delimited_expr = true
-match_arm_indent        = true
 trailing_comma          = "Vertical"
 use_small_heuristics    = "Default"
 
