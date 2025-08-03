@@ -1,10 +1,10 @@
-# Memory and Ownership Management in Rust nightly 1.90 – Best‑Practice 2025
+# Memory and Ownership Management in Rust nightly 1.91 – Best‑Practice 2025
 
 ## Introduction
 
 Rust’s memory model couples deterministic allocation with compile‑time ownership and borrowing.  Every value has a single owner, and values are automatically freed when they fall out of scope (RAII – Resource Acquisition Is Initialisation).  Borrowing allows multiple immutable references or a single mutable reference, while lifetimes express how long those borrows are valid.  These features eliminate entire classes of memory errors common in C/C++, such as use‑after‑free and double free.
 
-This manual consolidates memory‑management and ownership guidance for Rust nightly 1.90 as of August 2025.  It replaces the previous `memory_handbook.md` and incorporates ownership rules that were split across multiple files.  Each section distinguishes typical patterns, performance‑tuning techniques and advanced use‑cases.  Stable and nightly features are clearly identified; where behaviour has changed recently, notes cite the official release notes (for example, Rust 1.87 guarantees that `Vec::with_capacity` now allocates at least the requested size【968327487850412†L134-L136】).
+This manual consolidates memory‑management and ownership guidance for Rust nightly 1.91 as of August 2025.  It replaces the previous `memory_handbook.md` and incorporates ownership rules that were split across multiple files.  Each section distinguishes typical patterns, performance‑tuning techniques and advanced use‑cases.  Stable and nightly features are clearly identified; where behaviour has changed recently, notes cite the official release notes (for example, the nightly 1.91 release extends the guarantee that `Vec::with_capacity` allocates at least the requested size【684066008670463†L134-L140】 and makes many `std::arch` intrinsics safe to call with enabled target features【684066008670463†L134-L140】).
 
 ---
 
@@ -35,7 +35,7 @@ This manual consolidates memory‑management and ownership guidance for Rust nig
 
 ### Collections and capacity
 
-* For dynamic collections like `Vec<T>` and `String`, reserve capacity using `with_capacity` or `reserve` to reduce reallocations.  Since Rust 1.87 the standard library guarantees that `Vec::with_capacity(n)` will allocate **at least** `n` elements up front【968327487850412†L134-L136】; this helps predict memory usage and prevents accidental re‑allocations.
+* For dynamic collections like `Vec<T>` and `String`, reserve capacity using `with_capacity` or `reserve` to reduce reallocations.  The 1.91 nightly reaffirms that `Vec::with_capacity(n)` will allocate **at least** `n` elements up front【684066008670463†L134-L140】; this helps predict memory usage and prevents accidental re‑allocations.
 * Use `HashMap::with_capacity` or `HashMap::reserve` to pre‑allocate buckets and avoid rehashing.  Choose between `HashMap` and `BTreeMap` based on key distribution, iteration order and memory overhead.
 * Prefer slices (`&[T]`) and fixed‑size arrays (`[T; N]`) when sizes are known at compile time.  Returning slices instead of owned vectors avoids copying data.
 
@@ -134,4 +134,4 @@ Define clear boundaries: avoid mixing Rust deallocation with C allocation.  Prov
 
 ## Summary
 
-Memory and ownership management in Rust 1.90 builds on mature concepts—RAII, borrowing and lifetimes—and adds new guarantees like predictable `Vec::with_capacity` allocation【968327487850412†L134-L136】.  Prefer stack allocation when possible, reserve capacity for heap‑backed collections, and reuse buffers to avoid unnecessary allocations.  Use the appropriate smart pointer type (`Box`, `Rc`, `Arc`, `RefCell`, `Mutex`, `RwLock`) and break cycles with `Weak`.  When necessary, reach for advanced patterns—custom allocators, arenas, `MaybeUninit`, pinning—with caution and thorough documentation.  Measure and profile before optimising, and always test with tools like `miri` and sanitizers to maintain safety and performance.
+Memory and ownership management in Rust 1.91 builds on mature concepts—RAII, borrowing and lifetimes—and adds new guarantees like predictable `Vec::with_capacity` allocation【684066008670463†L134-L140】 and safe `std::arch` intrinsics under enabled CPU features【684066008670463†L134-L140】.  Prefer stack allocation when possible, reserve capacity for heap‑backed collections, and reuse buffers to avoid unnecessary allocations.  Use the appropriate smart pointer type (`Box`, `Rc`, `Arc`, `RefCell`, `Mutex`, `RwLock`) and break cycles with `Weak`.  When necessary, reach for advanced patterns—custom allocators, arenas, `MaybeUninit`, pinning—with caution and thorough documentation.  Measure and profile before optimising, and always test with tools like `miri` and sanitizers to maintain safety and performance.

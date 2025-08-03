@@ -1,7 +1,7 @@
-# Best Practices for Using Protocol Buffers in Rust 1.90 Nightly (2025)
+# Best Practices for Using Protocol Buffers in Rust 1.91 Nightly (2025)
 
 **Context**
-Rust 1.90 nightly (branched from master on 1 Aug 2025) introduces refined `const fn` behaviors and volatile memory access. While these features don’t fundamentally alter Protobuf usage, they matter for low‑level performance and FFI.
+Rust 1.91 nightly (branched from master on 2 Aug 2025) introduces refined `const fn` behaviours and volatile memory access.  While these features don’t fundamentally alter Protobuf usage, they matter for low‑level performance and FFI.  In addition, nightly 1.91 guarantees that `Vec::with_capacity` will allocate at least the requested amount【684066008670463†L134-L140】 and allows safe non‑pointer intrinsics, which may influence buffering strategies.
 
 Google released an official Rust Protobuf implementation (`protobuf 4.x`) in 2024–2025, offering a safe Rust API backed by C++/upb kernels rather than a pure-Rust implementation. This design enables zero‑cost interoperability with existing C++ Protobuf and better performance, but exposes C/C++ code to Rust and uses proxy types such as `ProtoStr` for strings.
 
@@ -214,4 +214,4 @@ Google’s gRPC team is building `grpc-rust` atop `tonic` to add connection mana
 ---
 
 **Conclusion**
-Protocol Buffers remain a robust, efficient serialization format for Rust. `prost` and `tonic` serve most use cases well, while `protobuf v4` and `grpc‑rust` aim for feature parity and zero‑cost FFI. By following these guidelines—structural message design, careful versioning, zero‑copy buffers, pooled allocations and thoughtful gRPC configuration—you can build high‑quality, performant services on Rust 1.90 and beyond.
+Protocol Buffers remain a robust, efficient serialisation format for Rust.  `prost` and `tonic` serve most use cases well, while `protobuf v4` and `grpc‑rust` aim for feature parity and zero‑cost FFI.  By following these guidelines—structural message design, careful versioning, zero‑copy buffers, pooled allocations and thoughtful gRPC configuration—you can build high‑quality, performant services on Rust 1.91 and beyond.

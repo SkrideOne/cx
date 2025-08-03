@@ -1,6 +1,6 @@
-# Best Practices for Concurrency in Rust (Nightly 1.90) – 2025 Methodology
+# Best Practices for Concurrency in Rust (Nightly 1.91) – 2025 Methodology
 
-Rust’s fearless concurrency ethos builds on strict ownership and borrowing rules to prevent data races at compile time.  Nightly 1.90 (stable planned for September 18 2025) doesn’t radically change the concurrency story but continues the evolution of stable APIs.  This guide distills current best practices and quality/performance considerations for writing concurrent Rust software in 2025.  The focus is on typical patterns and non‑typical (edge‑case) scenarios for both multi‑threading and asynchronous programming.
+Rust’s fearless concurrency ethos builds on strict ownership and borrowing rules to prevent data races at compile time.  Nightly 1.91 (stable planned for late 2025) doesn’t radically change the concurrency story but continues the evolution of stable APIs.  It introduces improved tooling (e.g., deprecation of `--nocapture` in favour of `--no-capture`) and safe `std::arch` intrinsics【684066008670463†L134-L140】, but the core concurrency principles remain the same.  This guide distils current best practices and quality/performance considerations for writing concurrent Rust software in 2025.  The focus is on typical patterns and non‑typical (edge‑case) scenarios for both multi‑threading and asynchronous programming.
 
 ---
 
@@ -163,4 +163,4 @@ Some crates (e.g. `moro`) allow borrowing futures without `'static` lifetimes; e
 
 ## 6 Summary
 
-Rust’s ownership model removes data races, but writing high‑quality concurrent code demands thoughtful design.  Match patterns to workloads, avoid blocking the async runtime, control concurrency levels, benchmark rigorously and employ structured concurrency.  By following these best practices for nightly 1.90, developers can build fast, reliable and scalable concurrent systems in 2025.
+Rust’s ownership model removes data races, but writing high‑quality concurrent code demands thoughtful design.  Match patterns to workloads, avoid blocking the async runtime, control concurrency levels, benchmark rigorously and employ structured concurrency.  By following these best practices for nightly 1.91, developers can build fast, reliable and scalable concurrent systems in 2025.

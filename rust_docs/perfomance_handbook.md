@@ -1,6 +1,6 @@
-# Best Practices for High-Performance Rust (Rust nightly 1.90) – 2025 Guide
+# Best Practices for High‑Performance Rust (Rust nightly 1.91) – 2025 Guide
 
-This manual consolidates current best practices (as of August 2025) for optimising computations written in Rust nightly 1.90. It emphasises algorithmic soundness, code quality and maintainability while maximising performance. Each recommended technique is based on published evidence rather than folklore and is compatible with today’s *Best Practice 2025* guidelines for maintainable, secure systems.
+This manual consolidates current best practices (as of August 2025) for optimising computations written in Rust nightly 1.91.  Nightly 1.91 builds on the features introduced in 1.90: `Vec::with_capacity` now guarantees it allocates at least the requested capacity and is therefore more predictable for pre‑allocation; most `std::arch` intrinsics without pointer arguments are now callable from safe code when the appropriate target features are enabled【684066008670463†L134-L140】; the standard library exposes unbounded shift operations (`unbounded_shl`, `unbounded_shr`) and midpoints for integer types; and strict overflow operations like `strict_add` and `strict_sub` are available behind the `strict_overflow_ops` feature【234936757082562†L1906-L1914】【605246160107921†L1353-L1365】.  These changes slightly alter performance characteristics and call for updated guidance.  As always, the manual emphasises algorithmic soundness, code quality and maintainability while maximising performance.  Each recommended technique is based on published evidence rather than folklore and is compatible with today’s *Best Practice 2025* guidelines for maintainable, secure systems.
 
 While Rust strives to generate efficient code by default, real-world programs often spend the majority of their execution time in a few hot code paths; profiling and targeted optimisation remain essential.
 
@@ -62,7 +62,7 @@ While Rust strives to generate efficient code by default, real-world programs of
 
 ### 2. Dynamic memory management & data structures
 
-– **Reserve capacity and reuse.** Use `Vec::with_capacity(n)` or `vec.reserve(n)`; clear and reuse vectors/strings rather than reallocating ([nnethercote.github.io](https://nnethercote.github.io), [doc.rust-lang.org](https://doc.rust-lang.org)).
+– **Reserve capacity and reuse.** Use `Vec::with_capacity(n)` or `vec.reserve(n)`; clear and reuse vectors/strings rather than reallocating.  Starting with nightly 1.91, `Vec::with_capacity` is guaranteed to allocate at least the requested number of elements【684066008670463†L134-L140】, so you can confidently rely on the requested capacity being available.  Reserve additional space with `reserve` or `try_reserve` as needed.
 – **Use small-vector stacks.** `SmallVec<[T; N]>` and `ArrayVec` avoid heap when sizes are small; benchmark overhead ([nnethercote.github.io](https://nnethercote.github.io)).
 – **Avoid nested collections.** Prefer flat `Vec<T>` with manual indexing for matrices.
 – **Prefer references & `Cow`.** APIs should work with slices (`&[T]`, `&str`); use `clone_from` and `Cow` to minimise copies ([extremelysunnyyk.medium.com](https://extremelysunnyyk.medium.com)).
@@ -148,4 +148,4 @@ strip = "symbols"
 
 ## Conclusion
 
-Optimising Rust code in 2025 remains a discipline of careful measurement, algorithm design and judicious use of advanced features. The techniques outlined above—profiling hot spots, reserving capacity, structuring memory, choosing appropriate concurrency models, tuning compilation options and managing FFI boundaries—yield robust performance improvements while preserving Rust’s safety guarantees. Always benchmark in the context of your application and resist premature optimisation. Good design, maintainable code and a clear understanding of your hardware will yield the greatest gains.
+Optimising Rust code in 2025 remains a discipline of careful measurement, algorithm design and judicious use of advanced features.  Nightly 1.91 offers incremental improvements—predictable `Vec` capacity, safe `std::arch` intrinsics【684066008670463†L134-L140】, unbounded shift operations and strict overflow APIs—but the overarching principles remain the same.  The techniques outlined above—profiling hot spots, reserving capacity, structuring memory, choosing appropriate concurrency models, tuning compilation options and managing FFI boundaries—yield robust performance improvements while preserving Rust’s safety guarantees.  Always benchmark in the context of your application and resist premature optimisation.  Good design, maintainable code and a clear understanding of your hardware will yield the greatest gains.

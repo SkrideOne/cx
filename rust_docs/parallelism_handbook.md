@@ -1,6 +1,6 @@
-# Parallelism and Concurrency in Rust Nightly 1.90 — Best‑Practice Methodology 2025
+# Parallelism and Concurrency in Rust Nightly 1.91 — Best‑Practice Methodology 2025
 
-Rust 1.90 nightly (July–Aug 2025) continues to build on Rust’s “fearless concurrency” model. It offers thread‑safe ownership, type‑checked lifetimes and best‑in‑class async/await to make concurrent and parallel programs both safe and fast. This manual consolidates current best practices for using Rust’s concurrency primitives, the Tokio and Rayon ecosystems and related crates, focusing on quality, performance and predictability. Each section cites official documentation or authoritative community resources.
+Rust 1.91 nightly (July–Aug 2025) continues to build on Rust’s “fearless concurrency” model.  It offers thread‑safe ownership, type‑checked lifetimes and best‑in‑class async/await to make concurrent and parallel programs both safe and fast.  Compared with 1.90, nightly 1.91 brings small improvements such as safe non‑pointer intrinsics and predictable container capacity【684066008670463†L134-L140】, but the core concurrency primitives remain unchanged.  This manual consolidates current best practices for using Rust’s concurrency primitives, the Tokio and Rayon ecosystems and related crates, focusing on quality, performance and predictability.  Each section cites official documentation or authoritative community resources.
 
 ---
 
@@ -154,4 +154,4 @@ For NUMA or GPU offload, use platform APIs to control affinity; with `std::simd`
 * **Plan for graceful shutdown**: structure tasks with `select!` or channels, ensure cancel-safety.
 * **Leverage the ecosystem**: use DashMap, Crossbeam, Tokio rather than reinventing primitives.
 
-By following these guidelines, developers on Rust nightly 1.90 can build concurrent programs that are robust, fast and maintainable. Always stay informed about evolving nightly features and consider stabilized alternatives in the future.
+By following these guidelines, developers on Rust nightly 1.91 can build concurrent programs that are robust, fast and maintainable.  Always stay informed about evolving nightly features and consider stabilised alternatives in the future.

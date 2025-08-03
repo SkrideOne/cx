@@ -1,4 +1,4 @@
-# Best practices for controlling type sizes and alignment in Rust 1.90‑nightly (2025)
+# Best practices for controlling type sizes and alignment in Rust 1.91‑nightly (2025)
 
 ## Background: why size and alignment matter
 
@@ -11,7 +11,7 @@ Most programs can let the compiler choose the layout automatically, but when int
 
 ---
 
-## Basic rules for layout (Rust 1.90)
+## Basic rules for layout (Rust 1.91)
 
 ### Primitive types
 

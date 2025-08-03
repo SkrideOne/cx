@@ -1,8 +1,8 @@
-# Best Practices for Using Alternative Allocators in Rust nightly 1.90 (2025)
+# Best Practices for Using Alternative Allocators in Rust nightly 1.91 (2025)
 
 Rust’s default memory allocator forwards allocation and de‑allocation requests to the system allocator. For most applications the default system allocator is efficient and stable, and the Rust RFC on global allocators stresses that choosing a different global allocator is an advanced optimization that should only be done by the top‑level binary crate—libraries should remain allocator‑agnostic.
 
-Rust nightly 1.90 exposes an unstable `Allocator` trait and several types in `std` are generic over allocators. Developers can now experiment with per‑type or global allocators. Best practice in 2025 emphasizes quality, portability and measurable performance improvement before adopting an alternative allocator. Below is a methodology for typical and atypical cases.
+Rust nightly 1.91 exposes an unstable `Allocator` trait and several types in `std` are generic over allocators.  Developers can now experiment with per‑type or global allocators.  Best practice in 2025 emphasises quality, portability and measurable performance improvement before adopting an alternative allocator.  Nightly 1.91 carries forward the 1.90 allocator API and benefits from stabilisations like `Vec::with_capacity` guaranteeing at least the requested allocation【684066008670463†L134-L140】.  Below is a methodology for typical and atypical cases.
 
 ---
 
@@ -170,7 +170,7 @@ Prefer battle‑tested crates over hand‑rolled allocators:
 
 ## 5 Summary
 
-Alternative allocators in Rust nightly 1.90 offer fine‑grained control and can improve performance when used judiciously:
+Alternative allocators in Rust nightly 1.91 offer fine‑grained control and can improve performance when used judiciously:
 
 * Use the system allocator by default; switch only when benchmarks justify it.
 * Prefer modern allocators (`mimalloc`, `jemalloc`) set in the top‑level binary.
@@ -178,4 +178,4 @@ Alternative allocators in Rust nightly 1.90 offer fine‑grained control and can
 * Apply bump/arena allocators for short‑lived data; pools for fixed sizes; static/thread‑local allocators for embedded and concurrent scenarios; and aligned/generational allocators for specialized needs.
 * For atypical cases (FFI, microcontrollers, platform‑specific builds), maintain clear allocator boundaries and consider crates like `auto-allocator`.
 
-Following this methodology will help Rust nightly 1.90 developers make informed decisions about alternative allocators, leading to higher performance and quality in 2025.
+Following this methodology will help Rust nightly 1.91 developers make informed decisions about alternative allocators, leading to higher performance and quality in 2025.

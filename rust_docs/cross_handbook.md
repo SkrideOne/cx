@@ -1,8 +1,8 @@
-# Best-Practice 2025 methodology for building fully cross-platform Rust applications (nightly 1.90)
+# Best‑Practice 2025 methodology for building fully cross‑platform Rust applications (nightly 1.91)
 
 ## 1 Overview
 
-Rust’s toolchain and ecosystem have matured quickly, making it possible to deliver the same codebase across desktops, mobile platforms and even embedded devices. Rust nightly 1.90 sits near the 2024–2025 boundary, so this guide focuses on techniques that remain valid going into 2025. Best-practice recommendations below prioritize performance, quality, safety and maintainability. Typical cases (Linux, Windows, macOS, mobile, embedded and WebAssembly) are treated separately. Non-typical cases (unusual architectures, mixed-language FFI and vendor-specific toolchains) are covered in a dedicated section.
+Rust’s toolchain and ecosystem have matured quickly, making it possible to deliver the same codebase across desktops, mobile platforms and even embedded devices.  Rust nightly 1.91 sits just beyond the 2024–2025 boundary and incorporates improvements such as a guaranteed capacity for `Vec::with_capacity` and safe non‑pointer `std::arch` intrinsics【684066008670463†L134-L140】.  This guide focuses on techniques that remain valid going into 2025.  Best‑practice recommendations below prioritise performance, quality, safety and maintainability.  Typical cases (Linux, Windows, macOS, mobile, embedded and WebAssembly) are treated separately.  Non‑typical cases (unusual architectures, mixed‑language FFI and vendor‑specific toolchains) are covered in a dedicated section.
 
 ---
 
@@ -10,7 +10,7 @@ Rust’s toolchain and ecosystem have matured quickly, making it possible to del
 
 ### 2.1 Use `rustup` to manage toolchains and targets
 
-Install Rust nightly 1.90 via **rustup**, then use `rustup toolchain install` to add nightly components. Rustup automatically manages compiler, Cargo and standard-library versions.
+Install Rust nightly 1.91 via **rustup**, then use `rustup toolchain install` to add nightly components.  Rustup automatically manages compiler, Cargo and standard‑library versions.
 
 Add targets through `rustup target add <triple>`. (The Rustup book notes that only the host standard library is installed by default, so additional targets must be added manually before cross-compiling.)
 
@@ -18,7 +18,7 @@ Cross-compile by passing `--target=<triple>` to Cargo. Examples include `x86_64-
 
 ### 2.2 Pin toolchain for reproducible builds
 
-Create a **`rust-toolchain.toml`** file specifying the channel (`nightly`), version (`1.90.0`) and components (e.g. `clippy`, `rustfmt`). Include all target triples used in the project. A per-project `rust-toolchain.toml` ensures that every developer and CI runner uses the same toolchain and prevents breaking changes.
+Create a **`rust-toolchain.toml`** file specifying the channel (`nightly`), version (`1.91.0`) and components (e.g. `clippy`, `rustfmt`).  Include all target triples used in the project.  A per‑project `rust-toolchain.toml` ensures that every developer and CI runner uses the same toolchain and prevents breaking changes.
 
 ### 2.3 Cargo configuration for cross-compiling
 

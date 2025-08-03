@@ -1,6 +1,6 @@
-# Best Practice Guide for Building and Optimizing Code with Rust Nightly 1.90 (2025)
+# Best Practice Guide for Building and Optimizing Code with Rust Nightly 1.91 (2025)
 
-Rust nightly 1.90 (branch date: 1 Aug 2025) contains numerous improvements to the compiler and tooling. This guide summarizes best-practice (2025) techniques for configuring builds and optimizing compilation with the nightly compiler. It is aimed at engineers working in performance-critical or safety-critical environments and follows the guideline: *measure, reason, and only then optimize*. All recommendations below are supported by official Rust documentation and recent performance research.
+Rust nightly 1.91 (branch date: 2 Aug 2025) contains numerous improvements to the compiler and tooling.  In addition to the features introduced in 1.90, the 1.91 release guarantees that `Vec::with_capacity` always allocates at least the requested capacity and makes many `std::arch` intrinsics safe when the appropriate CPU features are enabled【684066008670463†L134-L140】.  These changes can influence build‑time tuning decisions (e.g. you may no longer need to over‑reserve vector capacity or mark some intrinsic calls `unsafe`).  This guide summarises best‑practice (2025) techniques for configuring builds and optimizing compilation with the nightly compiler.  It is aimed at engineers working in performance‑critical or safety‑critical environments and follows the guideline: *measure, reason, and only then optimize*.  All recommendations below are supported by official Rust documentation and recent performance research.
 
 ---
 
@@ -186,4 +186,4 @@ Strategies to minimize developer build costs:
 
 ---
 
-*Key takeaway*: Rust’s compile-time and runtime behaviors are highly configurable. Nightly 1.90 introduces advanced features—parallel front-end, custom back-ends, and more. Always start from baseline profiles, adjust a few parameters at a time, benchmark thoroughly, and maintain code quality with lints and testing. These practices will help you build fast, small, and high-quality Rust binaries in 2025.
+*Key takeaway*: Rust’s compile-time and runtime behaviors are highly configurable. Nightly 1.91 builds on the improvements of 1.90—parallel front‑end compilation, custom back‑ends, profile‑guided optimisation and more—and adds stability to previously unstable APIs.  Always start from baseline profiles, adjust a few parameters at a time, benchmark thoroughly, and maintain code quality with lints and testing.  These practices will help you build fast, small and high‑quality Rust binaries in 2025.

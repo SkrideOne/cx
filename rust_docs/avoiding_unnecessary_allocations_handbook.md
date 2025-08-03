@@ -1,8 +1,8 @@
-# Avoiding Unnecessary Allocations in Rust 1.90 (Nightly) – Best‑Practice Manual 2025
+# Avoiding Unnecessary Allocations in Rust 1.91 (Nightly) – Best‑Practice Manual 2025
 
 **Date:** 02 Aug 2025 (Europe/Berlin)
 
-Rust 1.90 (nightly) is slated to become stable in Sep 2025; this manual targets nightly 1.90 and emphasises practices consistent with *Best Practice 2025* for quality and performance.
+Rust 1.91 (nightly) is slated to become stable in autumn 2025; this manual targets nightly 1.91 and emphasises practices consistent with *Best Practice 2025* for quality and performance.  The 1.91 nightly retains the unstable `vec_push_within_capacity` feature and continues to refine allocation guarantees—for example, `Vec::with_capacity` now guarantees it allocates at least the requested capacity【684066008670463†L134-L140】.
 
 ---
 
@@ -25,7 +25,7 @@ Heap allocations involve global locks, metadata updates and sometimes system cal
 | **Cloning collections**                                | `.clone()` on `Vec` or `String` allocates. If overwriting an existing vector, use `clone_from(&source)` to reuse the allocation.                                                                                                                                                            |
 | **Converting borrowed to owned data**                  | Avoid unnecessary `to_owned`, `to_string` or `clone`; store references with lifetimes or use `std::borrow::Cow`. `Cow<'_, str>` allocates only when ownership is required.                                                                                                                  |
 | **Extending a vector**                                 | Use `extend_from_slice`, `append` or `extend` rather than repeated `push`.                                                                                                                                                                                                                  |
-| **Using `push` when capacity is critical**             | On nightly 1.90, activate `#![feature(vec_push_within_capacity)]` and call `push_within_capacity(item)`—it appends only if spare capacity exists, returning `Err(item)` rather than reallocating. Combine with `reserve` to control growth precisely.                                       |
+| **Using `push` when capacity is critical**             | On nightly 1.91, activate `#![feature(vec_push_within_capacity)]` and call `push_within_capacity(item)`—it appends only if spare capacity exists, returning `Err(item)` rather than reallocating. Combine with `reserve` to control growth precisely.  Note that `Vec::with_capacity` now guarantees at least the requested capacity【684066008670463†L134-L140】, so you can better predict when `push_within_capacity` will succeed.                                       |
 | **Shrinking capacity after oversizing**                | `Vec::shrink_to_fit()` trims capacity to length. Use after large build phases to free memory, but remember it reallocates.                                                                                                                                                                  |
 | **Hash maps / sets**                                   | Use `HashMap::with_capacity(cap)` and `HashSet::with_capacity(cap)` to pre‑allocate buckets and avoid rehashing.                                                                                                                                                                            |
 
@@ -79,7 +79,7 @@ These types may be slower than `Vec` for large sizes but excel where most collec
 
 ### 7  Custom allocators and bump allocation (nightly features)
 
-* Nightly 1.90 exposes `#![feature(allocator_api)]` so collections can take a custom allocator parameter.
+* Nightly 1.91 exposes `#![feature(allocator_api)]` so collections can take a custom allocator parameter.
 * **Local bump allocator** – implement a simple bump arena and use `Vec::<T, &BumpAllocator>::with_capacity_in`.
 * **Global bump allocator** – declare with `#[global_allocator]`; risky: never frees memory.
 * **`bumpalo` crate** – safe scoped bump arena (`Bump::new()`); memory freed on drop.
@@ -141,4 +141,4 @@ Allocate large buffers in `static` arrays and wrap them safely; eliminates runti
 
 ## Conclusion
 
-Avoiding unnecessary allocations in Rust 1.90 combines foresight (pre‑allocating when sizes are predictable), **buffer reuse**, and judicious data‑structure choices. Simple steps like `Vec::with_capacity` and buffer reuse eliminate most allocations; advanced techniques (small‑vector types, `Cow`, bump allocators) provide further gains when profiling justifies them. Alternative allocators improve throughput for multithreaded or real‑time workloads, while custom allocators and static buffers should be wielded sparingly due to complexity. **Always profile before and after optimisation—what aids one workload may hinder another.**
+Avoiding unnecessary allocations in Rust 1.91 combines foresight (pre‑allocating when sizes are predictable), **buffer reuse**, and judicious data‑structure choices.  Simple steps like `Vec::with_capacity`—now guaranteed to allocate the requested capacity【684066008670463†L134-L140】—and buffer reuse eliminate most allocations; advanced techniques (small‑vector types, `Cow`, bump allocators) provide further gains when profiling justifies them.  Alternative allocators improve throughput for multithreaded or real‑time workloads, while custom allocators and static buffers should be wielded sparingly due to complexity.  **Always profile before and after optimisation—what aids one workload may hinder another.**

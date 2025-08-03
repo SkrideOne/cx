@@ -1,6 +1,6 @@
-# Privacy Best Practices in Rust Nightly 1.90 (Best Practice 2025)
+# Privacy Best Practices in Rust Nightly 1.91 (Best Practice 2025)
 
-Rust’s module system and its visibility modifiers (`pub`, `pub(crate)`, `pub(super)`, `pub(in <path>)`, `pub(self)`) give fine‑grained control over item accessibility. Proper use improves encapsulation, prevents accidental API exposure and helps optimisation. The guidance below summarises best practices for Rust Nightly 1.90 (Rust 2024 edition), emphasising quality, maintainability and performance.
+Rust’s module system and its visibility modifiers (`pub`, `pub(crate)`, `pub(super)`, `pub(in <path>)`, `pub(self)`) give fine‑grained control over item accessibility.  Proper use improves encapsulation, prevents accidental API exposure and helps optimisation.  The guidance below summarises best practices for Rust Nightly 1.91 (Rust 2024 edition) and incorporates minor improvements introduced since 1.90.  It emphasises quality, maintainability and performance.
 
 ---
 

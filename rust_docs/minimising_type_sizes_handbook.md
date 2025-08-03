@@ -1,4 +1,4 @@
-# Best Practices for Minimising Type Sizes in Rust (Nightly 1.90 – 2025)
+# Best Practices for Minimising Type Sizes in Rust (Nightly 1.91 – 2025)
 
 ## Why Type Sizes Matter
 

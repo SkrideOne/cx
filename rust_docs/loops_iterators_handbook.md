@@ -1,10 +1,10 @@
-# Loops and iterators in Rust (nightly 1.90): Best-Practice Manual for 2025
+# Loops and iterators in Rust (nightly 1.91): Best‑Practice Manual for 2025
 
 ## Introduction
 
 Loops and iterators are core abstractions in Rust. A loop executes a block repeatedly (`loop`, `while` or `for`), while an iterator is an object that produces a sequence of values on demand. Rust’s iterators are lazy and zero-cost: the optimizer fuses nested iterator adapters into simple loops, so iterator-heavy code compiles to almost the same assembly as an equivalent hand-written loop.
 
-Because of this, idiomatic code favours iterators for clarity and reliability, but developers must still understand when to use explicit loops for simplicity or to avoid semantic pitfalls. This manual covers current best practices in August 2025 for Rust nightly 1.90.
+Because of this, idiomatic code favours iterators for clarity and reliability, but developers must still understand when to use explicit loops for simplicity or to avoid semantic pitfalls.  This manual covers current best practices in August 2025 for Rust nightly 1.91.  While the fundamentals of iteration have not changed, nightly 1.91 introduces small enhancements—such as guaranteed capacity for `Vec::with_capacity`【684066008670463†L134-L140】 and new iterator adapters—that slightly improve ergonomics and predictability.
 
 ---
 
@@ -123,4 +123,4 @@ Because of this, idiomatic code favours iterators for clarity and reliability, b
 
 ## Conclusion
 
-Rust nightly 1.90 maintains that iterators are zero-cost abstractions. Prefer iterator methods and `for` loops for clarity and performance. Preallocate when building collections and avoid unnecessary cloning. Use explicit loops to simplify code or avoid semantic pitfalls. In advanced scenarios—custom iterators, concurrency or streaming—understand fusion and laziness to avoid footguns. Always profile real-world code and consult up-to-date Rust release notes for improvements.
+Rust nightly 1.91 maintains that iterators are zero‑cost abstractions.  Prefer iterator methods and `for` loops for clarity and performance.  Pre‑allocate when building collections and avoid unnecessary cloning.  Use explicit loops to simplify code or avoid semantic pitfalls.  In advanced scenarios—custom iterators, concurrency or streaming—understand fusion and laziness to avoid footguns.  Always profile real‑world code and consult up‑to‑date Rust release notes for improvements.

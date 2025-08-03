@@ -1,22 +1,22 @@
-# Best-practice continuous integration (CI) for Rust nightly 1.90 (as of Aug 2025)
+# Best‑practice continuous integration (CI) for Rust nightly 1.91 (as of Aug 2025)
 
 ## 1 Context and constraints
 
-* **Rust nightly 1.90**: The nightly branch was cut from `master` on 1 Aug 2025; the stable release is planned for 18 Sep 2025.
+* **Rust nightly 1.91**: The nightly branch was cut from `master` on 2 Aug 2025 (shortly after the 1.90 cut); the stable release is planned for late September/early October 2025.  Nightly 1.91 includes additional library stabilisations such as unbounded shift operations and the guarantee that `Vec::with_capacity` allocates at least the requested capacity【684066008670463†L134-L140】.
 * **GitHub Free plan**: Private repositories have 2 000 CI minutes/month and 500 MB storage. Standard hosted runners allow up to 20 concurrent jobs (max 5 macOS jobs). A workflow matrix can create up to 256 jobs; exceeding limits queues jobs and consumes minutes.
 
 ## 2 General guidelines
 
 ### 2.1 Pin the nightly toolchain
 
-* Use a **`rust-toolchain.toml`** or the `actions-rs/toolchain` action to pin `nightly-2025-08-01` (the first nightly after branch cut).
+* Use a **`rust-toolchain.toml`** or the `actions-rs/toolchain` action to pin a specific 1.91 nightly, such as `nightly-2025-08-02` (the first 1.91 nightly after branch cut).  Pinning avoids drift and ensures reproducible builds across CI, developers and local environments.
 * Pass `--locked` to Cargo commands to prevent implicit `Cargo.lock` updates.
 
 ```yaml
 - name: Install nightly toolchain
   uses: actions-rs/toolchain@v1
   with:
-    toolchain: nightly-2025-08-01
+    toolchain: nightly-2025-08-02
     profile: minimal
     override: true
 ```
@@ -75,7 +75,7 @@ Choose one strategy and key caches on OS and `Cargo.lock` hash:
 
 ## 3 Typical CI workflows
 
-Each workflow targets a private repo using nightly 1.90. Adjust `toolchain` once the final date is known.
+Each workflow targets a private repo using nightly 1.91. Adjust `toolchain` once the final date is known.
 
 ### 3.1 Basic build & test matrix
 
@@ -104,13 +104,13 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
           profile: minimal
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: "${{ runner.os }}-nightly-1.90"
+          key: "${{ runner.os }}-nightly-1.91"
 
       - if: matrix.os == 'ubuntu-latest'
         name: Check formatting
@@ -151,7 +151,7 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
           profile: minimal
           components: rust-src
@@ -192,7 +192,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
@@ -214,7 +214,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
       - uses: taiki-e/install-action@v2
         with:
@@ -239,7 +239,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
       - uses: taiki-e/install-action@v2
         with:
@@ -266,7 +266,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
       - run: |
           export RUSTFLAGS="-Zsanitizer=${{ matrix.sanitizer }}"
@@ -284,7 +284,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2025-08-01
+          toolchain: nightly-2025-08-02
           override: true
           components: miri
       - name: Run miri tests
@@ -303,21 +303,21 @@ Use multi-stage Dockerfiles with `cargo-chef`:
 
 ```dockerfile
 # Stage 0 – prepare dependencies
-FROM rust:1.90.0-nightly as chef
+FROM rust:1.91.0-nightly as chef
 RUN cargo install cargo-chef
 WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 # Stage 1 – build dependencies
-FROM rust:1.90.0-nightly as builder
+FROM rust:1.91.0-nightly as builder
 RUN cargo install cargo-chef
 WORKDIR /app
 COPY --from=chef /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Stage 2 – build the application
-FROM rust:1.90.0-nightly as builder2
+FROM rust:1.91.0-nightly as builder2
 WORKDIR /app
 COPY . .
 RUN cargo build --release --locked
@@ -344,7 +344,7 @@ Install required C/C++ dev packages on runners (`apt-get` on Ubuntu, `vcpkg` on 
 
 ## 5 Example project structure
 
-* **`rust-toolchain.toml`**: pins nightly 1.90
+* **`rust-toolchain.toml`**: pins nightly 1.91
 * **`.cargo/config.toml`**: configures `sccache` or other wrappers
 * **`.github/workflows/`**: `ci.yml`, `coverage.yml`, `release.yml`, `miri.yml`, etc.
 * **`CI_GUIDE.md`**, **`CREDITS`**, **`LICENSE`** in repo root.

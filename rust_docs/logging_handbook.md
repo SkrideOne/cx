@@ -1,6 +1,6 @@
-# Best Practices for Logging in Rust nightly 1.90 (Best Practice 2025)
+# Best Practices for Logging in Rust nightly 1.91 (Best Practice 2025)
 
-Logging is a critical part of an observability stack: it lets developers correlate events, troubleshoot failures and analyze performance. Rust nightly 1.90 inherits mature logging crates such as `log`, `tracing` and the surrounding ecosystem (e.g., `tracing-subscriber`, `tracing-appender`, `log4rs`). This guide summarizes Best Practice 2025 for implementing high-quality, performant logging with an emphasis on structured logs, safe error handling and support for both synchronous and asynchronous code. Typical cases (small CLI programs, web services, libraries) and atypical cases (resource-constrained or high-throughput environments, sensitive data) are covered.
+Logging is a critical part of an observability stack: it lets developers correlate events, troubleshoot failures and analyse performance.  Rust nightly 1.91 inherits mature logging crates such as `log`, `tracing` and the surrounding ecosystem (e.g., `tracing‑subscriber`, `tracing‑appender`, `log4rs`).  Nightly 1.91 brings only minor API changes relative to 1.90 but benefits from improved lints and the deprecation of the `--nocapture` test flag, which now appears as `--no‑capture`【684066008670463†L134-L140】.  This guide summarises Best Practice 2025 for implementing high‑quality, performant logging with an emphasis on structured logs, safe error handling and support for both synchronous and asynchronous code.  Typical cases (small CLI programs, web services, libraries) and atypical cases (resource‑constrained or high‑throughput environments, sensitive data) are covered.
 
 ---
 
@@ -265,4 +265,4 @@ Synchronous writes can block async runtimes. For high-performance services:
 
 **Conclusion**
 
-Rust nightly 1.90 provides a mature logging ecosystem. While `log` remains suitable for simple binaries and libraries, `tracing` is the recommended choice for new projects due to structured data, span-based context propagation and async compatibility. By following these Best Practice 2025 guidelines—selecting appropriate levels, structuring logs, using non-blocking writers and integrating with observability platforms—developers can build systems that are observable, performant and secure.
+Rust nightly 1.91 provides a mature logging ecosystem.  While `log` remains suitable for simple binaries and libraries, `tracing` is the recommended choice for new projects due to structured data, span‑based context propagation and async compatibility.  Nightly 1.91 introduces no breaking changes to logging itself but improves tooling (new lints and the `--no‑capture` flag in libtest【684066008670463†L134-L140】).  By following these Best Practice 2025 guidelines—selecting appropriate levels, structuring logs, using non‑blocking writers and integrating with observability platforms—developers can build systems that are observable, performant and secure.

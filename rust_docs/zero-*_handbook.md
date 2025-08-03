@@ -1,8 +1,8 @@
-# Zero-* Patterns in Rust Nightly 1.90 (Best Practice 2025)
+# Zero-* Patterns in Rust Nightly 1.91 (Best Practice 2025)
 
 ## Introduction
 
-Rust prides itself on zero-cost abstractions—high-level code that compiles to the same machine code you would have written by hand. The zero-* family of patterns extends this idea: zero-copy access avoids unnecessary memory moves, zero-sized types encode information at compile time without runtime storage, zeroization securely wipes secrets, and zero-cost abstractions (iterators, closures and async/await) give expressiveness without adding runtime overhead. Rust 1.90 (nightly) continues to emphasize safety and performance; the practices below are aligned with Best Practice 2025 and assume the user’s code is compiled with recent nightly features (e.g., `let_chains` stabilized in 1.88).
+Rust prides itself on zero‑cost abstractions—high‑level code that compiles to the same machine code you would have written by hand.  The zero‑* family of patterns extends this idea: zero‑copy access avoids unnecessary memory moves, zero‑sized types encode information at compile time without runtime storage, zeroization securely wipes secrets, and zero‑cost abstractions (iterators, closures and async/await) give expressiveness without adding runtime overhead.  Rust 1.91 (nightly) continues to emphasise safety and performance and brings incremental improvements such as the guaranteed capacity of `Vec::with_capacity`【684066008670463†L134-L140】 and safe non‑pointer intrinsics.  The practices below are aligned with Best Practice 2025 and assume the user’s code is compiled with recent nightly features (e.g., `let_chains` stabilised in 1.88).
 
 This guide focuses on practical patterns for quality and performance. For typical cases the recommended approach is explained with examples. Non-typical cases—those requiring advanced patterns or `unsafe`—are discussed separately.
 
@@ -194,7 +194,7 @@ let value = unsafe { uninit.assume_init() };
 
 ## Conclusion
 
-The zero-* patterns in Rust revolve around eliminating unnecessary work—runtime overhead, memory copies, runtime storage, or secret leaks. Rust 1.90 nightly supports these via new features like `let_chains`, new lints and improved stable APIs.
+The zero-* patterns in Rust revolve around eliminating unnecessary work—runtime overhead, memory copies, runtime storage or secret leaks. Rust 1.91 nightly continues this trajectory and builds upon 1.90: features like `let_chains` (stabilised in 1.88) remain available, while the allocator API improvements guarantee that `Vec::with_capacity` always allocates at least the requested capacity and many `std::arch` intrinsics can now be used in safe code【684066008670463†L134-L140】.  These improvements make zero-* techniques more predictable and safer.
 
 * Prefer high-level abstractions when truly zero-cost—but measure.
 * Use `PhantomData` and lifetimes to enforce compile-time invariants.

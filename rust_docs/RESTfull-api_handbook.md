@@ -1,6 +1,6 @@
-# Building High-Performance RESTful APIs in Rust (Nightly 1.90)
+# Building High‑Performance RESTful APIs in Rust (Nightly 1.91)
 
-Rust’s focus on memory safety, zero-cost abstractions and fearless concurrency make it an excellent choice for building modern web services. In 2025 the ecosystem around Rust’s nightly compiler (1.90) continues to mature; frameworks like Actix Web and Axum offer ergonomic APIs, while low-level building blocks such as Hyper provide fine-grained control. This guide summarises best practices for designing and implementing RESTful APIs in Rust, with a focus on high quality, performance and maintainability.
+Rust’s focus on memory safety, zero‑cost abstractions and fearless concurrency make it an excellent choice for building modern web services.  In 2025 the ecosystem around Rust’s nightly compiler (now at version 1.91) continues to mature; frameworks like Actix Web and Axum offer ergonomic APIs, while low‑level building blocks such as Hyper provide fine‑grained control.  Nightly 1.91 also introduces subtle improvements such as guaranteed capacity for `Vec::with_capacity`【684066008670463†L134-L140】 and safe non‑pointer `std::arch` intrinsics【684066008670463†L134-L140】, which can benefit data processing inside APIs.  This guide summarises best practices for designing and implementing RESTful APIs in Rust, with a focus on high quality, performance and maintainability.
 
 ---
 
@@ -197,7 +197,7 @@ Organise code into modules: `handlers`, `models`, `state`, `services`, `utils`. 
 * **Containerization:** build minimal Docker images (scratch/distroless); use `musl` for static linking.
 
 ```dockerfile
-FROM rust:1.90-slim AS builder
+FROM rust:1.91-slim AS builder
 WORKDIR /app
 COPY . .
 RUN cargo build --release
@@ -215,4 +215,4 @@ ENTRYPOINT ["/my-api"]
 
 ## Summary
 
-Building RESTful APIs in Rust (nightly 1.90) requires balancing correct API design with Rust’s capabilities. Carefully designed URIs, proper HTTP semantics, versioning, hypermedia and pagination provide a solid foundation. Leveraging asynchronous runtimes, efficient serialization, robust middleware and profiling yields high performance. Adhering to security best practices, structured logging, testing and documentation ensures maintainable and secure services. Finally, understanding non-typical scenarios and preparing for deployment completes a mature, production-ready API.
+Building RESTful APIs in Rust (nightly 1.91) requires balancing correct API design with Rust’s capabilities.  Carefully designed URIs, proper HTTP semantics, versioning, hypermedia and pagination provide a solid foundation.  Leveraging asynchronous runtimes, efficient serialization, robust middleware and profiling yields high performance.  Adhering to security best practices, structured logging, testing and documentation ensures maintainable and secure services.  Finally, understanding non‑typical scenarios and preparing for deployment completes a mature, production‑ready API.

@@ -1,4 +1,4 @@
-# Best Practices for I/O in Rust 1.90 Nightly (2025)
+# Best Practices for I/O in Rust 1.91 Nightly (2025)
 
 ## 1 Overview
 
@@ -12,7 +12,7 @@ I/O can be synchronous (blocking) or asynchronous (event-driven). The standard l
 
 ### 1.2 API Stability
 
-Rust 1.87 stabilised the anonymous pipe API (`io::pipe`), exposing `PipeReader`/`PipeWriter` for cross-process communication. Rust 1.88 (June 2025) improved ergonomics without breaking changes. The guidelines below apply to nightly 1.90 and will remain valid for the 2025 stable release.
+Rust 1.87 stabilised the anonymous pipe API (`io::pipe`), exposing `PipeReader`/`PipeWriter` for cross‑process communication.  Rust 1.88 (June 2025) improved ergonomics without breaking changes.  These features remain available on nightly 1.91.  The guidelines below apply to nightly 1.91 and will remain valid for the 2025 stable release.
 
 ---
 
@@ -41,7 +41,7 @@ Rust 1.87 stabilised the anonymous pipe API (`io::pipe`), exposing `PipeReader`/
 ### 2.4 Standard input/output
 
 * Use `io::stdin()`, `stdout()`, and `stderr()`. Wrap `stdin()` in a `BufReader` and call `read_line()` to avoid per-byte syscalls.
-* Detect terminals with `io::IsTerminal` (stabilised in 1.90).
+* Detect terminals with `io::IsTerminal` (stabilised in 1.90).  Nightly 1.91 does not change this API but continues to support it.
 * Always `flush()` when prompting in interactive contexts.
 
 ### 2.5 Network I/O (TCP/UDP)
@@ -219,4 +219,4 @@ Rust 1.87 stabilised `io::pipe()`, returning `(PipeReader, PipeWriter)`. Reads b
 
 ## 5 Conclusion
 
-Rust 1.90 nightly delivers robust, efficient I/O primitives. By applying buffering judiciously, choosing appropriate abstractions (sync vs async), validating boundaries, batching operations, and handling errors explicitly, developers can meet 2025’s quality and performance expectations. Advanced techniques—zero-copy parsing, direct I/O, multi-process coordination—can yield further gains when guided by profiling and careful unsafe use.
+Rust 1.91 nightly delivers robust, efficient I/O primitives. By applying buffering judiciously, choosing appropriate abstractions (sync vs async), validating boundaries, batching operations and handling errors explicitly, developers can meet 2025’s quality and performance expectations. Advanced techniques—zero‑copy parsing, direct I/O, multi‑process coordination—can yield further gains when guided by profiling and careful `unsafe` use.

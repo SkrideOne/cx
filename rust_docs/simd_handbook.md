@@ -1,10 +1,10 @@
-# SIMD best practices in Rust nightly 1.90 (Best Practice 2025)
+# SIMD best practices in Rust nightly 1.91 (Best Practice 2025)
 
 ## Overview
 
 Single Instruction Multiple Data (SIMD) enables parallel execution of the same operation on multiple data elements. Modern CPUs provide SSE/AVX on x86/x86‑64 and NEON on ARM, but support varies across CPU generations. Rust’s `std::simd` module (requires the nightly compiler and `#![feature(portable_simd)]`) offers a **portable abstraction** that compiles to the best available instructions and falls back to scalar code when the target CPU lacks a SIMD unit (see *doc.rust-lang.org*). Each SIMD vector type has lanes (parallel elements) and provides element‑wise arithmetic and bitwise operations, comparisons and reduction functions; a separate **Mask** type encodes per‑lane booleans.
 
-SIMD programming is powerful but error‑prone. Performance depends on data alignment, lane count, CPU features and algorithm choice. The following methodological guide for Rust 1.90 nightly compiles best‑practice ideas from 2024–2025 literature (GitHub, *linebender.org*). It covers **typical SIMD use‑cases, atypical patterns, performance and quality considerations, and CPU‑feature management**. The guidelines use `std::simd` when available and mention safe abstractions such as **pulp** for runtime dispatch.
+SIMD programming is powerful but error‑prone.  Performance depends on data alignment, lane count, CPU features and algorithm choice.  The following methodological guide for Rust nightly 1.91 compiles best‑practice ideas from 2024–2025 literature (GitHub, *linebender.org*).  Nightly 1.91 maintains the same `portable_simd` API and also allows many `std::arch` intrinsics without pointer arguments to be called from safe code when the appropriate target features are enabled【684066008670463†L134-L140】.  It covers **typical SIMD use‑cases, atypical patterns, performance and quality considerations, and CPU‑feature management**.  The guidelines use `std::simd` when available and mention safe abstractions such as **pulp** for runtime dispatch.
 
 ---
 
@@ -197,5 +197,5 @@ fn mandelbrot_iter(real: Simd<f64, LANES>, imag: Simd<f64, LANES>, threshold: f6
 
 ## Conclusion
 
-SIMD programming in Rust nightly 1.90 offers significant performance potential when following structured best practices: choose appropriate lane counts, align data, use mask‑driven patterns for divergent control flow, and **benchmark thoroughly**. Typical operations (vector arithmetic, dot products, reductions, conditional selection) map cleanly to `std::simd` and safe abstractions, while non‑typical scenarios (prefix sums, first‑match searches, misaligned data, runtime lane selection) require careful handling with masks, swizzles and scalar fallbacks. By adhering to these guidelines—and leveraging tools such as **pulp** for runtime dispatch—developers can achieve high performance while retaining portability and code quality in Rust 2025.
+SIMD programming in Rust nightly 1.91 offers significant performance potential when following structured best practices: choose appropriate lane counts, align data, use mask‑driven patterns for divergent control flow, and **benchmark thoroughly**.  Typical operations (vector arithmetic, dot products, reductions, conditional selection) map cleanly to `std::simd` and safe abstractions, while non‑typical scenarios (prefix sums, first‑match searches, misaligned data, runtime lane selection) require careful handling with masks, swizzles and scalar fallbacks.  Nightly 1.91’s ability to call many `std::arch` intrinsics from safe code【684066008670463†L134-L140】 reduces the need for `unsafe` blocks.  By adhering to these guidelines—and leveraging tools such as **pulp** for runtime dispatch—developers can achieve high performance while retaining portability and code quality in Rust 2025.
 

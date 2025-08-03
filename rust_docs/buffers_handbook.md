@@ -1,8 +1,8 @@
-# Buffer Best Practices in Rust Nightly 1.90 (2025)
+# Buffer Best Practices in Rust Nightly 1.91 (2025)
 
 ## Background
 
-Buffers provide temporary storage for I/O and computation. Using them effectively affects throughput, latency and memory. Rust’s nightly 1.90 release (approx. Aug 2025) includes stable APIs (e.g. `Vec`, `BufReader`, `BufWriter`) and experimental features (e.g. `BorrowedBuf`). This guide summarises Best Practice 2025 for buffer management, focusing on performance, safety and quality.
+Buffers provide temporary storage for I/O and computation.  Using them effectively affects throughput, latency and memory.  Rust’s nightly 1.91 release (Aug 2025) includes stable APIs (e.g. `Vec`, `BufReader`, `BufWriter`), experimental features (e.g. `BorrowedBuf`) and freshly stabilised APIs such as `io::pipe`【47017583311317†L129-L140】.  This guide summarises Best Practice 2025 for buffer management, focusing on performance, safety and quality.  Remember that `Vec::with_capacity` now guarantees it will allocate at least the requested capacity【684066008670463†L134-L140】—this matters when sizing buffers.
 
 ---
 
@@ -89,4 +89,4 @@ For secrets (passwords, keys), zero memory before drop. Use crates like `zeroize
 
 ## Conclusion
 
-Buffer management in Rust 1.90 combines safety with control over performance‑critical details. Effective buffering demands understanding the I/O pattern, data‑structure capacity and concurrency model. Follow these guidelines to avoid pitfalls such as unnecessary allocations, unflushed buffers or unsafe memory handling—and always benchmark your specific workload: optimal buffer sizes and structures depend on the application and hardware.
+Buffer management in Rust 1.91 combines safety with control over performance‑critical details.  Effective buffering demands understanding the I/O pattern, data‑structure capacity and concurrency model.  Follow these guidelines to avoid pitfalls such as unnecessary allocations, unflushed buffers or unsafe memory handling—and always benchmark your specific workload: optimal buffer sizes and structures depend on the application and hardware.  Nightly 1.91 inherits the buffer‑related improvements of 1.90 (like guaranteed vector capacities and the `io::pipe` API【684066008670463†L134-L140】) without breaking existing code.

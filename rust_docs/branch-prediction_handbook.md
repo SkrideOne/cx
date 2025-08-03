@@ -1,4 +1,4 @@
-# Branch Prediction Hints in Rust nightly 1.90 – Best Practice 2025
+# Branch Prediction Hints in Rust nightly 1.91 – Best Practice 2025
 
 ## Background – why branch prediction matters
 
@@ -17,7 +17,7 @@ Rust targets the same CPUs as C/C++. The compiler (rustc and LLVM) and hardware 
 
 ---
 
-## 1. Rust support for branch prediction hints (nightly 1.90)
+## 1. Rust support for branch prediction hints (nightly 1.91)
 
 ### 1.1 Nightly `core::intrinsics::likely`/`unlikely`
 

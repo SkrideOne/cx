@@ -1,6 +1,6 @@
-# Dependency Injection (DI) in Rust Nightly 1.90 – Best Practice 2025
+# Dependency Injection (DI) in Rust Nightly 1.91 – Best Practice 2025
 
-Rust does not have a built‑in DI framework. Instead, DI is achieved by designing code around traits, generics and trait objects. In 2025 there are emerging frameworks (e.g. **shaku**, **teloc**, **pavex**) but most patterns rely on language primitives and careful API design. The following guide summarises best‑practice for high‑performance, quality DI in Rust nightly 1.90, based on current 2025 guidance.
+Rust does not have a built‑in DI framework. Instead, DI is achieved by designing code around traits, generics and trait objects. In 2025 there are emerging frameworks (e.g. **shaku**, **teloc**, **pavex**) but most patterns rely on language primitives and careful API design. The following guide summarises best‑practice for high‑performance, quality DI in Rust nightly 1.91, based on current 2025 guidance. Nightly 1.91 retains the features available in 1.90, such as `async_fn_in_trait`, and adds improved tooling and safe intrinsics.
 
 ---
 
@@ -16,7 +16,7 @@ Rust does not have a built‑in DI framework. Instead, DI is achieved by designi
 | **Manage lifetimes explicitly**            | Decide whether dependencies should be transient, scoped or singleton. Use `OnceCell`/`async_once_cell` and `Arc`/`Rc` to control instantiation and sharing. Lazy instantiation avoids expensive initialisation unless needed. ([chesedo.me](https://chesedo.me))                                                                                                                                 |
 | **Prefer compile‑time DI for performance** | Frameworks such as **shaku** and **pavex** perform DI at compile time. They avoid runtime reflection and dynamic dispatch and generate zero‑cost code. ([lpalmieri.com](https://lpalmieri.com))                                                                                                                                                                                                  |
 | **Avoid over‑abstracting**                 | Only create traits for components that interact with the outside world (databases, file systems, networks) or complex functionality. Avoid hiding simple data types behind traits. ([jmmv.dev](https://jmmv.dev))                                                                                                                                                                                |
-| **Use `async fn` in traits (nightly)**     | Nightly Rust 1.90 supports the `async_fn_in_trait` feature. You can write `async fn` directly in traits for static dispatch; it desugars to a generic associated type. However, traits with `async fn` are not yet dyn-safe; use the [`async-trait`](https://docs.rs/async-trait) crate when dynamic dispatch of async methods is required. ([rust-lang.github.io](https://rust-lang.github.io)) |
+| **Use `async fn` in traits (nightly)**     | Nightly Rust 1.91 continues to support the `async_fn_in_trait` feature. You can write `async fn` directly in traits for static dispatch; it desugars to a generic associated type. However, traits with `async fn` are not yet dyn‑safe; use the [`async-trait`](https://docs.rs/async-trait) crate when dynamic dispatch of async methods is required. ([rust‑lang.github.io](https://rust-lang.github.io)) |
 
 ---
 
@@ -171,7 +171,7 @@ Use `OnceCell` (or `async_once_cell` for async) with `Arc`/`Rc` to control insta
 
 ### 2.6 Asynchronous dependencies
 
-Nightly Rust 1.90 allows writing `async fn` in traits for static dispatch. For dynamic dispatch of async methods, use the `async-trait` crate. When a dependency’s initialisation is async, propagate async through the call chain and use `async_once_cell` for lazy singletons.
+Nightly Rust 1.91 continues to allow writing `async fn` in traits for static dispatch. For dynamic dispatch of async methods, use the `async-trait` crate. When a dependency’s initialisation is async, propagate async through the call chain and use `async_once_cell` for lazy singletons.
 
 ```rust
 use async_once_cell::OnceCell as AsyncOnceCell;
@@ -424,10 +424,10 @@ When integrating with frameworks (e.g., **actix-web**, **axum**, **bevy**), foll
 
 ## 5 Looking forward
 
-Rust nightly 1.90 introduces incremental improvements such as `async fn` in traits and generic associated types, making DI easier and more expressive. Future versions may stabilise dynamic async traits and improved trait upcasting. Keep an eye on the Rust release notes and RFCs for changes. For now, the above patterns provide a robust foundation for high‑quality, performant DI in modern Rust.
-# Dependency Injection (DI) in Rust Nightly 1.90 – Best Practice 2025
+Rust nightly 1.91 builds upon these improvements, continuing to support `async fn` in traits and generic associated types, making DI easier and more expressive. Future versions may stabilise dynamic async traits and improved trait upcasting. Keep an eye on the Rust release notes and RFCs for changes. For now, the above patterns provide a robust foundation for high‑quality, performant DI in modern Rust.
+# Dependency Injection (DI) in Rust Nightly 1.91 – Best Practice 2025
 
-Rust does not have a built‑in DI framework. Instead, DI is achieved by designing code around traits, generics and trait objects. In 2025 there are emerging frameworks (e.g. **shaku**, **teloc**, **pavex**) but most patterns rely on language primitives and careful API design. The following guide summarises best‑practice for high‑performance, quality DI in Rust nightly 1.90, based on current 2025 guidance.
+Rust does not have a built‑in DI framework. Instead, DI is achieved by designing code around traits, generics and trait objects. In 2025 there are emerging frameworks (e.g. **shaku**, **teloc**, **pavex**) but most patterns rely on language primitives and careful API design. The following guide summarises best‑practice for high‑performance, quality DI in Rust nightly 1.91, based on current 2025 guidance. Nightly 1.91 retains the features available in 1.90 and offers improved tooling and safety.
 
 ---
 
@@ -443,7 +443,7 @@ Rust does not have a built‑in DI framework. Instead, DI is achieved by designi
 | **Manage lifetimes explicitly**            | Decide whether dependencies should be transient, scoped or singleton. Use `OnceCell`/`async_once_cell` and `Arc`/`Rc` to control instantiation and sharing. Lazy instantiation avoids expensive initialisation unless needed. ([chesedo.me](https://chesedo.me))                                                                                                                                 |
 | **Prefer compile‑time DI for performance** | Frameworks such as **shaku** and **pavex** perform DI at compile time. They avoid runtime reflection and dynamic dispatch and generate zero‑cost code. ([lpalmieri.com](https://lpalmieri.com))                                                                                                                                                                                                  |
 | **Avoid over‑abstracting**                 | Only create traits for components that interact with the outside world (databases, file systems, networks) or complex functionality. Avoid hiding simple data types behind traits. ([jmmv.dev](https://jmmv.dev))                                                                                                                                                                                |
-| **Use `async fn` in traits (nightly)**     | Nightly Rust 1.90 supports the `async_fn_in_trait` feature. You can write `async fn` directly in traits for static dispatch; it desugars to a generic associated type. However, traits with `async fn` are not yet dyn-safe; use the [`async-trait`](https://docs.rs/async-trait) crate when dynamic dispatch of async methods is required. ([rust-lang.github.io](https://rust-lang.github.io)) |
+| **Use `async fn` in traits (nightly)**     | Nightly Rust 1.91 continues to support the `async_fn_in_trait` feature. You can write `async fn` directly in traits for static dispatch; it desugars to a generic associated type. However, traits with `async fn` are not yet dyn‑safe; use the [`async-trait`](https://docs.rs/async-trait) crate when dynamic dispatch of async methods is required. ([rust‑lang.github.io](https://rust-lang.github.io)) |
 
 ---
 
@@ -598,7 +598,7 @@ Use `OnceCell` (or `async_once_cell` for async) with `Arc`/`Rc` to control insta
 
 ### 2.6 Asynchronous dependencies
 
-Nightly Rust 1.90 allows writing `async fn` in traits for static dispatch. For dynamic dispatch of async methods, use the `async-trait` crate. When a dependency’s initialisation is async, propagate async through the call chain and use `async_once_cell` for lazy singletons.
+Nightly Rust 1.91 continues to allow writing `async fn` in traits for static dispatch. For dynamic dispatch of async methods, use the `async-trait` crate. When a dependency’s initialisation is async, propagate async through the call chain and use `async_once_cell` for lazy singletons.
 
 ```rust
 use async_once_cell::OnceCell as AsyncOnceCell;
@@ -851,4 +851,4 @@ When integrating with frameworks (e.g., **actix-web**, **axum**, **bevy**), foll
 
 ## 5 Looking forward
 
-Rust nightly 1.90 introduces incremental improvements such as `async fn` in traits and generic associated types, making DI easier and more expressive. Future versions may stabilise dynamic async traits and improved trait upcasting. Keep an eye on the Rust release notes and RFCs for changes. For now, the above patterns provide a robust foundation for high‑quality, performant DI in modern Rust.
+Rust nightly 1.91 builds upon these improvements, continuing to support `async fn` in traits and generic associated types, making DI easier and more expressive. Future versions may stabilise dynamic async traits and improved trait upcasting. Keep an eye on the Rust release notes and RFCs for changes. For now, the above patterns provide a robust foundation for high‑quality, performant DI in modern Rust.

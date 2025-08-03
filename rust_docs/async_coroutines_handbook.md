@@ -1,14 +1,14 @@
-# Asynchronous Programming and Coroutines in Rust nightly 1.90 – Best‑Practice 2025
+# Asynchronous Programming and Coroutines in Rust nightly 1.91 – Best‑Practice 2025
 
 ## Introduction
 
 Rust’s `async`/`await` model turns asynchronous functions into *zero‑cost* state machines.  An `async fn` returns a `Future` that implements `poll` and advances through its states when driven by an executor.  Because these coroutines are compiled down to efficient stackless state machines, they have little runtime overhead compared to hand‑written callbacks—hence “zero‑cost coroutines”.  However, asynchronous programming in Rust is primarily about **concurrency** (overlapping I/O or high‑latency operations) rather than raw CPU parallelism.  Using async for compute‑heavy workloads often degrades performance.
 
-This handbook merges and supersedes the previous `async_handbook.md` and `zero_cost_corutines.md`.  It summarises current best practices for writing asynchronous Rust code on nightly 1.90 (as of August 2025).  New language features like **async closures** (stable since 1.85) and **`async fn` in traits with Return Type Notation (RTN)** are highlighted.  When using nightly features, gate them appropriately and provide stable fallbacks.
+This handbook merges and supersedes the previous `async_handbook.md` and `zero_cost_corutines.md`.  It summarises current best practices for writing asynchronous Rust code on nightly 1.91 (as of August 2025).  New language features like **async closures** (stable since 1.85), **`async fn` in traits with Return Type Notation (RTN)** and tooling improvements such as guaranteed `Vec` capacity and safe non‑pointer `std::arch` intrinsics【684066008670463†L134-L140】 are highlighted where relevant.  When using nightly features, gate them appropriately and provide stable fallbacks.
 
 ---
 
-## New language features in Rust 1.85–1.90
+## New language features in Rust 1.85–1.91
 
 | Feature | Explanation & best‑practice use |
 |--------|---------------------------------|

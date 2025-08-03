@@ -1,4 +1,4 @@
-# Best-Practice Methodology for Vectorisation in Rust (nightly 1.90, 2025)
+# Best‑Practice Methodology for Vectorisation in Rust (nightly 1.91, 2025)
 
 ## 1 Principles of Auto‑vectorisation
 
@@ -206,7 +206,7 @@ In multi‑dimensional arrays (matrices, images), memory is often stored in row�
 
 ## 7 Summary
 
-Vectorisation in Rust 1.90 relies on a balance between trusting the compiler and using explicit SIMD when necessary:
+Vectorisation in Rust 1.91 relies on a balance between trusting the compiler and using explicit SIMD when necessary.  Nightly 1.91 inherits all improvements from 1.90 and adds safe wrappers for many `std::arch` intrinsics when the appropriate CPU features are enabled【684066008670463†L134-L140】, making it easier to experiment with low‑level SIMD without `unsafe`.  The overall guidance remains unchanged:
 
 * Structure loops to make data access predictable and independent, avoid loop‑carried dependencies, and use iterators and zipped slices for clarity and performance (users.rust-lang.org).
 * Use `core::simd` to write portable, safe SIMD code. Employ `slice::as_simd` for aligned processing and handle tails with scalar code (doc.rust-lang.org).
@@ -214,4 +214,4 @@ Vectorisation in Rust 1.90 relies on a balance between trusting the compiler and
 * Always consider alignment and memory layout, and restructure data when necessary (users.rust-lang.org).
 * Benchmark and verify the generated assembly to ensure your code is vectorising as expected (tweedegolf.nl).
 
-By following these guidelines, you can harness the full power of SIMD on Rust nightly 1.90 while maintaining code quality and portability.
+By following these guidelines, you can harness the full power of SIMD on Rust nightly 1.91 while maintaining code quality and portability.

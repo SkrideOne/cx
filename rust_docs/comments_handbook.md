@@ -1,4 +1,4 @@
-# Commenting Best Practices for Rust Nightly 1.90 (2025)
+# Commenting Best Practices for Rust Nightly 1.91 (2025)
 
 ## 1 Introduction
 
@@ -128,4 +128,4 @@ Use attributes (`#[deprecated]`, `#[allow(...)]`) rather than comments. Comments
 
 ## 11 Conclusion
 
-Proper commenting in Rust Nightly 1.90 balances style-guide adherence with thoughtful explanation of intent, safety, and usage patterns. Use implementation comments to clarify *why* decisions were made and documentation comments to describe API behavior, errors, panics, and safety invariants. Reinforce docs with examples validated via doc tests. By following these best practices, you will create maintainable, high-quality Rust code that is both easy to understand and evolve.
+Proper commenting in Rust Nightly 1.91 balances style-guide adherence with thoughtful explanation of intent, safety and usage patterns.  Nightly 1.91 inherits the same commenting model as earlier releases but benefits from improved tooling (e.g., `rustdoc` tests respect the `--no‑capture` flag and Clippy includes new lints for null pointer arguments【684066008670463†L134-L140】).  Use implementation comments to clarify *why* decisions were made and documentation comments to describe API behaviour, errors, panics and safety invariants.  Reinforce docs with examples validated via doc tests.  By following these best practices, you will create maintainable, high‑quality Rust code that is both easy to understand and evolve.

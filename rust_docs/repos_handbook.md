@@ -1,6 +1,6 @@
-# Best Practices for Organising Rust Code and Repositories (Nightly 1.90 – Best Practice 2025)
+# Best Practices for Organising Rust Code and Repositories (Nightly 1.91 – Best Practice 2025)
 
-Modern Rust development emphasises maintainability, clarity and efficiency. This manual summarises best-practice guidance (circa 2025) for organising code and repositories when using the Rust nightly 1.90 toolchain. Recommendations follow official documentation, the Rust API Guidelines and the Cargo book. Typical cases (library/binary projects, workspaces, FFI and concurrency-heavy crates) are covered first, followed by non-typical situations.
+Modern Rust development emphasises maintainability, clarity and efficiency. This manual summarises best‑practice guidance (circa 2025) for organising code and repositories when using the Rust nightly 1.91 toolchain.  Nightly 1.91 builds on the improvements introduced in 1.90—such as `Vec::with_capacity` now guaranteeing it allocates at least the requested capacity and many `std::arch` intrinsics being callable from safe code when the appropriate CPU features are enabled【684066008670463†L134-L140】—and retains the same project‑structuring principles.  Recommendations follow official documentation, the Rust API Guidelines and the Cargo book.  Typical cases (library/binary projects, workspaces, FFI and concurrency‑heavy crates) are covered first, followed by non‑typical situations.
 
 ---
 
@@ -100,13 +100,14 @@ A virtual manifest has no `[package]` section.
 
 ## 4 Testing and continuous integration
 
+
 ### 4.1 Unit, integration and documentation tests
 
 * **Unit tests**: `#[cfg(test)] mod tests` in the same file; test private and edge cases.
 * **Integration tests**: files in `tests/` as separate crates.
 * **Doc tests**: code examples in doc comments compile and run with `cargo test`.
 * **Examples**: programs in `examples/` compiled with tests.
-* **Benchmarks** (nightly): functions annotated with `#[bench]` in `benches/` or use `criterion`.
+* **Benchmarks** (nightly): since Rust 1.91 the long‑deprecated `#[bench]` attribute is now fully de‑stabilised and triggers a hard error when used without enabling custom test frameworks【47017583311317†L20-L23】.  For benchmarking, use an external harness such as **Criterion** or **Iai**, or define a custom test framework via `#![feature(custom_test_frameworks)]` and the `test` crate.  Place benchmarks in `benches/` and run them with `cargo bench` or your harness of choice.
 
 ### 4.2 Continuous integration (CI)
 

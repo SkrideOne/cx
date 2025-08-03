@@ -1,8 +1,8 @@
-# Best-Practice 2025 methodology for organizing and using external libraries in Rust (nightly 1.90)
+# Best-Practice 2025 methodology for organising and using external libraries in Rust (nightly 1.91)
 
 ## Introduction
 
-Rust’s ecosystem thrives on a large collection of third-party crates, yet pulling in external code has costs: build times, binary size, maintenance burden and security risk. Nightly 1.90 gives access to experimental features such as portable SIMD and the new feature resolver, but it also demands care because unstable features may change. This guide summarizes Best Practice 2025 for managing external libraries on Rust nightly 1.90. The focus is on quality, performance and clarity, and all recommendations use declarative approaches (controlling behavior through Cargo.toml and compile-time flags rather than runtime scripts).
+Rust’s ecosystem thrives on a large collection of third‑party crates, yet pulling in external code has costs: build times, binary size, maintenance burden and security risk.  Nightly 1.91 gives access to experimental features such as portable SIMD, the new feature resolver and safe non‑pointer `std::arch` intrinsics【684066008670463†L134-L140】, but it also demands care because unstable features may change.  This guide summarises Best Practice 2025 for managing external libraries on Rust nightly 1.91.  The focus is on quality, performance and clarity, and all recommendations use declarative approaches (controlling behaviour through `Cargo.toml` and compile‑time flags rather than runtime scripts).
 
 ---
 
@@ -181,4 +181,4 @@ Organizing external dependencies effectively is essential for sustainable Rust p
 * **Security & maintenance**: audit and update dependencies regularly.
 * **Performance awareness**: disable unused features and leverage parallelism/SIMD.
 
-Integrate these declarative strategies into your CI workflow to build reliable, maintainable and high-performance Rust applications on nightly 1.90.
+Integrate these declarative strategies into your CI workflow to build reliable, maintainable and high‑performance Rust applications on nightly 1.91.  Nightly 1.91 inherits all the improvements of 1.90 (including the guaranteed capacity of `Vec::with_capacity` and safe `std::arch` intrinsics【684066008670463†L134-L140】) and adds incremental performance fixes, so keeping your toolchain up to date is recommended.

@@ -1,8 +1,8 @@
-# Best Practices for Naked Functions and Inline Assembly in Rust Nightly 1.90 (2025)
+# Best Practices for Naked Functions and Inline Assembly in Rust Nightly 1.91 (2025)
 
 ## Introduction
 
-Rust 1.88 stabilized naked functions and the `naked_asm!` macro, building on the already-stable `asm!` macro for inline assembly. Rust nightly 1.90 continues to support these features. Both naked functions and inline assembly provide direct control over generated machine code, but they bypass many of Rust’s safety guarantees and complicate compiler optimizations. The guidelines below distill Best Practice 2025 recommendations to ensure code quality, portability and performance.
+Rust 1.88 stabilised naked functions and the `naked_asm!` macro, building on the already‑stable `asm!` macro for inline assembly.  Rust nightly 1.91 continues to support these features and adds important usability improvements: many `std::arch` intrinsics that do not take pointer arguments can now be called from **safe** Rust if the correct CPU features are enabled at compile time【684066008670463†L134-L140】.  This reduces the need for hand‑written assembly in some low‑level tasks.  Both naked functions and inline assembly provide direct control over generated machine code, but they bypass many of Rust’s safety guarantees and complicate compiler optimisations.  The guidelines below distil Best Practice 2025 recommendations to ensure code quality, portability and performance when working on nightly 1.91.
 
 ## Background
 
@@ -47,7 +47,7 @@ Rust 1.88 replaced `#[naked]` with `#[unsafe(naked)]` and introduced `naked_asm!
 
 ### 1. Simple arithmetic or bit‑twiddling instructions
 
-Use inline assembly only when a suitable intrinsic is unavailable. Many operations (e.g., bit rotations, population count) are exposed in `std::arch` or `core::arch` and compile to efficient instructions.
+Use inline assembly only when a suitable intrinsic is unavailable.  Many operations (e.g., bit rotations, population count) are exposed in `std::arch` or `core::arch` and compile to efficient instructions.  With nightly 1.91, most intrinsics that do not take pointer arguments can be called from safe Rust when the appropriate target features are enabled【684066008670463†L134-L140】, so prefer these safe intrinsics over inline assembly wherever possible.
 
 * **Use `inout` / `lateout`** to minimize register pressure.
 * **Annotate side effects**: use `options(pure, nomem, nostack)` when appropriate.
@@ -177,4 +177,4 @@ Rare or risky uses (self-modifying code, hook patches, manual stack-pointer mani
 
 ## Conclusion
 
-Inline assembly and naked functions empower low-level Rust programming while demanding rigorous attention to safety, ABI compliance and maintainability. By following Best Practice 2025 guidelines—sparing use of assembly, strict option annotations, register preservation, and thorough documentation—developers can achieve high performance without compromising code quality or safety.
+Inline assembly and naked functions empower low‑level Rust programming while demanding rigorous attention to safety, ABI compliance and maintainability.  Nightly 1.91 further reduces the need for inline assembly by allowing many CPU‑specific intrinsics to be called from safe code【684066008670463†L134-L140】.  By following Best Practice 2025 guidelines—sparing use of assembly, strict option annotations, register preservation, and thorough documentation—developers can achieve high performance without compromising code quality or safety.

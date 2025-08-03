@@ -1,6 +1,6 @@
-# Best Practices for Network Protocols in Rust 1.90 (Nightly)
+# Best Practices for Network Protocols in Rust 1.91 (Nightly)
 
-**Author’s note**: The user’s environment uses the Europe/Berlin time zone and the current date is **2 August 2025**. This report summarises best‑practice guidance from 2024–2025 for developing network protocols with the Rust 1.90 nightly compiler, aligning with *Best Practice 2025* standards for performance, quality and security.
+**Author’s note**: The user’s environment uses the Europe/Berlin time zone and the current date is **3 August 2025**.  This report summarises best‑practice guidance from 2024–2025 for developing network protocols with the Rust 1.91 nightly compiler, aligning with *Best Practice 2025* standards for performance, quality and security.  Nightly 1.91 builds on 1.90 by guaranteeing that `Vec::with_capacity` allocates at least the requested space and by allowing many `std::arch` intrinsics to be called from safe code【684066008670463†L134-L140】.  While these features primarily impact systems programming, the general principles for network protocol design remain the same.
 
 ---
 
@@ -20,7 +20,7 @@ Network data is untrusted. Validate protocol fields, sizes and encodings. Avoid 
 
 ### • Stay current
 
-Keep dependencies updated and audited with **cargo‑audit**. Rust 1.90 nightly introduces features such as `io_uring` support and `async` in `no_std` contexts—leverage them for performance.
+Keep dependencies updated and audited with **cargo‑audit**.  Rust 1.91 nightly continues to support `io_uring` and `async` in `no_std` contexts and also benefits from library improvements such as `io::pipe`, guaranteed vector capacity and safe non‑pointer intrinsics【684066008670463†L134-L140】.  Leverage these when they can reduce copy overhead or simplify low‑level code.  Always check release notes and upgrade regularly to benefit from security fixes.
 
 ### • Design for testing and maintainability
 
@@ -146,4 +146,4 @@ Use flamegraphs and instrumentation to identify bottlenecks. Prefer atomic count
 
 ## 7 Conclusion
 
-Rust 1.90 nightly provides powerful tools for high‑performance, memory‑safe network software. *Best Practice 2025* emphasises modelling protocol states with Rust’s type system, minimising `unsafe`, validating inputs, and maintaining up‑to‑date dependencies. For typical tasks—HTTP servers, gRPC services, WebSockets and low‑level TCP/UDP—use async runtimes like **tokio**, apply zero‑copy techniques, manage backpressure with bounded channels, and secure transport with **rustls**. For custom protocols, a **sans‑IO** design and explicit state machines yield testable, reusable and safe code. Following these guidelines will help developers build robust, performant and secure network protocols on Rust 1.90 and beyond.
+Rust 1.91 nightly provides powerful tools for high‑performance, memory‑safe network software.  *Best Practice 2025* emphasises modelling protocol states with Rust’s type system, minimising `unsafe`, validating inputs and maintaining up‑to‑date dependencies.  For typical tasks—HTTP servers, gRPC services, WebSockets and low‑level TCP/UDP—use async runtimes like **tokio**, apply zero‑copy techniques, manage backpressure with bounded channels, and secure transport with **rustls**.  For custom protocols, a **sans‑IO** design and explicit state machines yield testable, reusable and safe code.  Following these guidelines will help developers build robust, performant and secure network protocols on Rust 1.91 and beyond.

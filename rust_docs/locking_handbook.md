@@ -1,8 +1,8 @@
-# Best Practices for Locking in Rust Nightly 1.90 (Best Practice 2025)
+# Best Practices for Locking in Rust Nightly 1.91 (Best Practice 2025)
 
 ## Introduction
 
-Rust’s ownership and borrowing model provide strong compile-time guarantees against data races, but most real-world programs still need run-time synchronization when multiple threads or tasks access shared state. Locking primitives in Rust’s standard library (`std::sync`) and ecosystem have evolved significantly; the nightly 1.90 series introduces futex-based implementations for fairer and faster mutexes and read–write locks and stabilizes functions such as `clear_poison` to recover from lock poisoning. Third-party crates like `parking_lot` provide efficient mutexes and read–write locks without poisoning, and the Tokio runtime offers asynchronous mutexes (`tokio::sync::Mutex`) and RwLocks tailored to async tasks. Best Practice 2025 emphasizes writing concurrency code that is safe, high-quality and performant.
+Rust’s ownership and borrowing model provide strong compile‑time guarantees against data races, but most real‑world programs still need run‑time synchronisation when multiple threads or tasks access shared state.  Locking primitives in Rust’s standard library (`std::sync`) and ecosystem have evolved significantly: the nightly 1.90 series introduced futex‑based implementations for fairer and faster mutexes and read–write locks and stabilised functions such as `clear_poison` to recover from lock poisoning.  These improvements carry forward into nightly 1.91, which also benefits from other runtime refinements.  Third‑party crates like `parking_lot` provide efficient mutexes and read–write locks without poisoning, and the Tokio runtime offers asynchronous mutexes (`tokio::sync::Mutex`) and RwLocks tailored to async tasks.  Best Practice 2025 emphasises writing concurrency code that is safe, high‑quality and performant.
 
 ---
 
@@ -165,7 +165,7 @@ Rust’s ownership and borrowing model provide strong compile-time guarantees ag
 
 * **Profiling contention**: `perf`, Valgrind, Criterion, flamegraphs.
 * **Deadlock detection**: `parking_lot::deadlock::check_deadlock()`.
-* **Futex optimizations**: rely on 1.90’s futex-based mutexes and condvars.
+* **Futex optimizations**: rely on nightly 1.91’s futex‑based mutexes and condvars.  The futex enhancements introduced in 1.90 remain available and continue to provide fair and fast locking behaviour.
 * **Fairness tuning**: use `unlock_fair()` for lock handover.
 * **Documentation**: clearly outline data sharing, protection and lock ordering.
 * **Thread management**: prefer thread pools or async runtimes; avoid excessive OS threads.
@@ -174,4 +174,4 @@ Rust’s ownership and borrowing model provide strong compile-time guarantees ag
 
 ## Conclusion
 
-Rust’s concurrency primitives offer strong safety guarantees, but correctness and performance depend on careful design. Best Practice 2025 emphasizes minimal, fine-grained locking, poison recovery, fairness, and lock-free or message-passing architectures. Separate mutable and immutable data, never hold locks across `.await`, and profile to detect contention. These guidelines enable developers to leverage Rust nightly 1.90’s improved primitives for high-quality, performant concurrent systems.
+Rust’s concurrency primitives offer strong safety guarantees, but correctness and performance depend on careful design. Best Practice 2025 emphasizes minimal, fine‑grained locking, poison recovery, fairness and lock‑free or message‑passing architectures. Separate mutable and immutable data, never hold locks across `.await`, and profile to detect contention. These guidelines enable developers to leverage Rust nightly 1.91’s improved primitives—building on the futex optimizations and poisoning APIs from 1.90—for high‑quality, performant concurrent systems.

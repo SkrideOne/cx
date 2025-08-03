@@ -1,8 +1,8 @@
-# Methodology for Writing and Managing Tests in Rust (nightly 1.90) – Best Practice 2025
+# Methodology for Writing and Managing Tests in Rust (nightly 1.91) – Best Practice 2025
 
 ## 1 Overview and goals
 
-This document collects best practices for designing, writing and managing tests in Rust at the state of the nightly 1.90 compiler (release 2025‑07‑31), focusing on the quality and performance requirements demanded by 2025 software projects. Rust’s built‑in test harness and surrounding ecosystem have evolved significantly: features such as `--no-capture`, target‑specific doctest attributes and the de‑stabilization of the `#[bench]` attribute require updated workflows. The guidelines below integrate these changes while preserving stability on nightly.
+This document collects best practices for designing, writing and managing tests in Rust at the state of the nightly 1.91 compiler (release 2025‑08‑02), focusing on the quality and performance requirements demanded by 2025 software projects. Rust’s built‑in test harness and surrounding ecosystem have evolved significantly: features such as the new `--no‑capture` flag replacing the deprecated `--nocapture`【684066008670463†L134-L140】, target‑specific doctest attributes and the full de‑stabilization of the `#[bench]` attribute require updated workflows.  The guidelines below integrate these changes while preserving stability on nightly.  Nightly 1.91 inherits all improvements from 1.90, including stable `extract_if` APIs and guaranteed `Vec::with_capacity` allocation, though these features are less directly relevant to testing.
 
 **Key principles:**
 
@@ -279,4 +279,4 @@ Use `cargo-mutants` to assess test suite quality; run periodically due to slowne
 
 ## 5 Conclusion
 
-By leveraging the mature ecosystem around nightly 1.90, developers can build robust, performant and maintainable test suites that combine unit, integration, doctests, property‑based, concurrency and fuzz testing. Advanced features such as target‑specific doctest attributes, `--test-runtool` and external harnesses (Criterion, Iai) expand testing possibilities. Adhering to these best practices ensures readiness for 2025 and beyond.
+By leveraging the mature ecosystem around nightly 1.91, developers can build robust, performant and maintainable test suites that combine unit, integration, doctests, property‑based, concurrency and fuzz testing.  Advanced features such as target‑specific doctest attributes, `--test-runtool` and external harnesses (Criterion, Iai) expand testing possibilities.  Adhering to these best practices ensures readiness for 2025 and beyond.

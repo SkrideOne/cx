@@ -1,8 +1,8 @@
-# Best Practices for Handling Bit-Width and Type Sizes in Rust 1.90 Nightly (2025 Edition)
+# Best Practices for Handling Bit‑Width and Type Sizes in Rust 1.91 Nightly (2025 Edition)
 
 ## Overview
 
-Rust’s integer types come in fixed bit-width variants (e.g., `u8`, `i32`) and pointer-width variants (`usize`, `isize`). Choosing the correct type has implications for portability, memory usage, performance and security. This guide synthesizes the latest Rust documentation and community discussions (up to August 2025) to provide best-practice recommendations for selecting and manipulating integer types under the Rust 1.90 nightly compiler. It separates typical cases—the situations most developers encounter—from non-typical cases involving unusual bit-widths, bit-fields or performance-critical code.
+Rust’s integer types come in fixed bit‑width variants (e.g. `u8`, `i32`) and pointer‑width variants (`usize`, `isize`).  Choosing the correct type has implications for portability, memory usage, performance and security.  This guide synthesises the latest Rust documentation and community discussions (up to August 2025) to provide best‑practice recommendations for selecting and manipulating integer types under the Rust 1.91 nightly compiler.  It separates typical cases—the situations most developers encounter—from non‑typical cases involving unusual bit‑widths, bit‑fields or performance‑critical code.  Nightly 1.91 stabilises numerous integer APIs introduced in 1.87–1.90, including unbounded shift operations (`unbounded_shl`/`unbounded_shr`), midpoint computation (`midpoint`) and checked casting between signed and unsigned types【47017583311317†L129-L140】.  These additions influence how you handle overflows and bit operations.
 
 ---
 
@@ -60,7 +60,9 @@ Rust’s integer types come in fixed bit-width variants (e.g., `u8`, `i32`) and 
 * **Bit width**: `bit_width` (nightly).
 * **Isolating bits**: `isolate_most_significant_one`, `isolate_least_significant_one` (nightly).
 * **Reversing/rotating**: `reverse_bits`, `rotate_left`, `rotate_right`.
-* **Unchecked/strict shifts**: `unchecked_shl`, `strict_shl` (nightly).
+* **Unchecked, strict and unbounded shifts**: `unchecked_shl`, `strict_shl` (nightly) and the new `unbounded_shl`/`unbounded_shr` methods【47017583311317†L129-L140】.  The unbounded versions shift by the full amount of the right‑hand operand without masking; if the shift amount is greater than or equal to the type’s bit‑width they return zero【234936757082562†L1906-L1914】.
+* **Midpoint computation**: `midpoint` (nightly) calculates `(a + b) / 2` without overflow; use instead of `(a + b) / 2` for large signed values.
+* **Strict overflow operations**: nightly provides `strict_add`, `strict_sub`, `strict_mul` and `strict_neg` (enabled via the `strict_overflow_ops` feature) for integer types.  These methods always panic on overflow, independent of debug assertions【605246160107921†L1353-L1365】.  Use them to detect unexpected overflow early when correctness matters.
 
 > Prefer these explicit methods over manual shifts and masks for clarity and safety.
 

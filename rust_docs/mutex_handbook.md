@@ -1,6 +1,6 @@
-# Best-Practice methodology for using mutexes in Rust 1.90 (nightly) – 2025 edition
+# Best‑Practice methodology for using mutexes in Rust 1.91 (nightly) – 2025 edition
 
-Rust’s `Mutex<T>` is a mutual-exclusion primitive that contains the data it guards. It enforces exclusive access by returning a guard object (`MutexGuard`), which unlocks the mutex when dropped. This design prevents data races and ensures RAII-based unlocking; manually unlocking is unsafe. On nightly 1.90 (stable Sept 2025), `std::sync::Mutex` remains the general-purpose lock; alternative implementations (`parking_lot::Mutex`, `spin::Mutex`) trade off fairness, speed and behavior.
+Rust’s `Mutex<T>` is a mutual‑exclusion primitive that contains the data it guards.  It enforces exclusive access by returning a guard object (`MutexGuard`), which unlocks the mutex when dropped.  This design prevents data races and ensures RAII‑based unlocking; manually unlocking is unsafe.  On nightly 1.91 (stable Oct 2025), `std::sync::Mutex` remains the general‑purpose lock; alternative implementations (`parking_lot::Mutex`, `spin::Mutex`) trade off fairness, speed and behaviour.  Nightly 1.91 continues to use the futex‑based implementations introduced in 1.90 for fairer and faster mutexes, and no major API changes were made.
 
 ---
 
@@ -160,4 +160,4 @@ Use a `VecDeque` protected by a mutex:
 
 ## 5 Conclusion
 
-`Mutex<T>` in Rust 1.90 provides RAII-based safety but does not prevent logical deadlocks. Best Practice 2025 focuses on choosing the right primitive, minimising lock scope, handling poisoning, profiling contention and documenting concurrency. For maximum performance, prefer `parking_lot` features, but choose `std::sync::Mutex` for priority inheritance or unwind safety. By following these guidelines—using atomics and channels when possible, avoiding locks across `.await`, and employing detection tools—you can write safe, maintainable and high-performance concurrent Rust code.
+`Mutex<T>` in Rust 1.91 provides RAII‑based safety but does not prevent logical deadlocks.  Best Practice 2025 focuses on choosing the right primitive, minimising lock scope, handling poisoning, profiling contention and documenting concurrency.  For maximum performance, prefer `parking_lot` features, but choose `std::sync::Mutex` for priority inheritance or unwind safety.  By following these guidelines—using atomics and channels when possible, avoiding locks across `.await`, and employing detection tools—you can write safe, maintainable and high‑performance concurrent Rust code.

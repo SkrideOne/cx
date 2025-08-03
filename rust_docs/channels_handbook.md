@@ -1,16 +1,16 @@
-# Best Practices for Rust Channels (Nightly 1.90, 2025)
+# Best Practices for Rust Channels (Nightly 1.91, 2025)
 
 ## Introduction
 
 Rust encourages a concurrency model in which threads communicate by sending messages rather than sharing state. A channel connects a sender to a receiver so that values can be transferred between threads or tasks. Message passing transfers ownership between threads and helps avoid data races and deadlocks.
 
-In Rust 1.90 (nightly), the standard library introduces experimental multi‑producer/multi‑consumer (MPMC) channels under `std::sync::mpmc` alongside the long‑standing `std::sync::mpsc` (multi‑producer, single‑consumer) channels. Outside the standard library, crates such as `crossbeam-channel` provide high-performance MPMC channels with features like `select!` and timed channels. Async runtimes like Tokio offer asynchronous channel types (e.g., `tokio::sync::mpsc`, `broadcast`, `watch`, and `oneshot`).
+In Rust 1.91 (nightly), the standard library continues to evolve its channel APIs.  The experimental multi‑producer/multi‑consumer (MPMC) channels under `std::sync::mpmc` remain unstable but are maturing, and the deprecation of `--nocapture` in favour of `--no-capture` emphasises more predictable tooling.  Outside the standard library, crates such as `crossbeam-channel` provide high‑performance MPMC channels with features like `select!` and timed channels.  Async runtimes like Tokio offer asynchronous channel types (e.g., `tokio::sync::mpsc`, `broadcast`, `watch`, and `oneshot`).
 
-This guide consolidates 2025 best practices for working with channels in Rust nightly 1.90. It presents typical patterns (producer–consumer, pipelines, worker pools, fan‑in/out, etc.), non‑typical scenarios, and performance‑oriented recommendations.
+This guide consolidates 2025 best practices for working with channels in Rust nightly 1.91.  It presents typical patterns (producer–consumer, pipelines, worker pools, fan‑in/out, etc.), non‑typical scenarios, and performance‑oriented recommendations.
 
 ---
 
-## Channel Implementations (Rust 1.90 and ecosystem)
+## Channel Implementations (Rust 1.91 and ecosystem)
 
 | Channel type                                         | Producer/consumer model                | Buffer & behaviour                                                                 | Extra features                                        | Typical uses                                        |
 | ---------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------- |
@@ -129,4 +129,4 @@ Validate and sanitize data received over channels. Avoid sending mutable referen
 
 ## Conclusion
 
-Channels are fundamental to safe concurrency in Rust. Nightly 1.90 introduces experimental MPMC channels (`std::sync::mpmc`). For typical patterns (producer–consumer, pipelines, worker pools), select the implementation that matches your performance and complexity needs: `mpsc` for simplicity, MPMC or Crossbeam for multi-consumer or high throughput, and Tokio channels for async tasks. Use bounded channels for backpressure, handle errors explicitly, and drop senders/receivers for graceful shutdown. For advanced cases (broadcast, watch, one‑shot, low‑traffic or high‑throughput), leverage specialized channels, pre‑allocate/batch messages, and avoid spin-lock channels in idle scenarios. Following these best practices will help you build high-quality, performant concurrent code in 2025 and beyond.
+Channels are fundamental to safe concurrency in Rust.  Nightly 1.91 continues to experiment with MPMC channels (`std::sync::mpmc`) while leaving them unstable for now.  For typical patterns (producer–consumer, pipelines, worker pools), select the implementation that matches your performance and complexity needs: `mpsc` for simplicity, MPMC or Crossbeam for multi‑consumer or high throughput, and Tokio channels for async tasks.  Use bounded channels for backpressure, handle errors explicitly, and drop senders/receivers for graceful shutdown.  For advanced cases (broadcast, watch, one‑shot, low‑traffic or high‑throughput), leverage specialized channels, pre‑allocate/batch messages, and avoid spin‑lock channels in idle scenarios.  Following these best practices will help you build high‑quality, performant concurrent code in 2025 and beyond.

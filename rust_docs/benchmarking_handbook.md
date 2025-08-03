@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Benchmarking is the disciplined practice of measuring the performance of code to detect bottlenecks, compare implementations and avoid regressions. In modern Rust (nightly version 1.90 as of 2 Aug 2025), the traditional `#[bench]` attribute has been fully de‑stabilised (github.com). As a result, external benchmarking frameworks and custom harnesses are now the recommended way to write and run benchmarks on both the stable and nightly compilers. This manual sets out the 2025 best practices for creating reliable, reproducible and high‑quality benchmarks in Rust. The focus is on code quality and performance, not just raw speed, so each section discusses proper setup, fairness, analysis and reporting.
+Benchmarking is the disciplined practice of measuring the performance of code to detect bottlenecks, compare implementations and avoid regressions.  In modern Rust (nightly version 1.91 as of August 2025), the traditional `#[bench]` attribute has been fully de‑stabilised—using it without `#![feature(custom_test_frameworks)]` is now a hard error【47017583311317†L20-L23】.  As a result, external benchmarking frameworks and custom harnesses are now the recommended way to write and run benchmarks on both the stable and nightly compilers.  This manual sets out the 2025 best practices for creating reliable, reproducible and high‑quality benchmarks in Rust.  The focus is on code quality and performance, not just raw speed, so each section discusses proper setup, fairness, analysis and reporting.
 
 ---
 
@@ -129,9 +129,9 @@ Use Iai alongside Criterion to validate instruction-level improvements.
 
 ---
 
-## 4 Writing Benchmarks on Nightly 1.90
+## 4 Writing Benchmarks on Nightly 1.91
 
-The `#[bench]` attribute is fully de‑stabilised as of Rust 1.88 (github.com). To use it on nightly:
+The `#[bench]` attribute is fully de‑stabilised as of Rust 1.88【47017583311317†L20-L23】.  Nightly 1.91 treats `#[bench]` without `#![feature(custom_test_frameworks)]` as a hard error.  To use it on nightly:
 
 1. Enable features at crate root: `#![feature(test)]`, `#![feature(custom_test_frameworks)]`.
 2. `extern crate test;` and use `test::black_box`.
