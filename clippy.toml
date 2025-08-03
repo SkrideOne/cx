@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+
+msrv = "1.91.0"
+
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "Use hashbrown::HashMap or ahash::AHashMap" },
+    { path = "std::collections::HashSet", reason = "SipHash is slow; use ahash" },
+    { path = "std::collections::LinkedList", reason = "Excessive indirection; Vec is faster" },
+    { path = "std::boxed::Box<dyn Trait>", allow-invalid = true, reason = "Each instance is heap‑allocated and prevents inlining; prefer enum or generics" },
+    { path = "std::boxed::Box<dyn Any>", allow-invalid = true, reason = "Dynamic cast and heap allocation; prefer enum or generics" },
+    { path = "std::cell::RefCell", reason = "Panics on borrow violations and is not Sync" },
+    { path = "std::cell::Cell", reason = "Value copying can hide data races" },
+    { path = "std::cell::UnsafeCell", reason = "Unsafe API; prefer atomics or Mutex" },
+    { path = "std::rc::Rc", reason = "Not Send; use Arc or a bump arena" },
+    { path = "std::sync::Mutex", reason = "std::sync::Mutex is slow; use parking_lot::Mutex" },
+    { path = "std::sync::RwLock", reason = "std::sync::RwLock is slow; use parking_lot::RwLock" },
+    { path = "std::sync::mpsc::Sender", reason = "Heap allocation per send; use crossbeam::channel" },
+    { path = "std::sync::mpsc::Receiver", reason = "Same issue" },
+    { path = "std::path::PathBuf", reason = "Allocates on heap; pass &Path and allocate PathBuf internally" },
+    { path = "alloc::string::String", reason = "Do not use String as a hash key; prefer &'static str or SmolStr" },
+]
