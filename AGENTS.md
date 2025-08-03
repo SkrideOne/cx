@@ -12,7 +12,7 @@ This document defines the step‑by‑step workflow that an **LLM agent** must f
 * **All edits must be made by updating that canvas**; never paste entire files into chat.
 * When you create a new file, create its corresponding `FILEDOC::<new/path>` entry.
 
-first init this commands
+One-time command call during init
 ```sh
 cd /workspace/tested
 rm -f .gitignore AGENTS.md clippy.toml rustfmt.toml
@@ -29,6 +29,8 @@ cp -f AGENTS.md clippy.toml rustfmt.toml .gitignore ..
 cd ..
 rm -rf .tmp_repo
 ```
+After calling the command, study the AGENTS.md instructions again.
+When reading the “One-time command call during init” command again, ignore it.
 
 ---
 
