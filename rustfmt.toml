@@ -1,0 +1,39 @@
+# --- Core toggles -------------------------------------------------
+style_edition = "2024"
+unstable_features = true
+
+# --- Import organisation -----------------------------------------
+reorder_imports     = true
+group_imports       = "StdExternalCrate"
+imports_granularity = "Crate"
+imports_indent      = "Block"
+
+# --- Formatting basics -------------------------------------------
+hard_tabs  = false
+tab_spaces = 4
+indent_style = "Block"
+max_width   = 80
+newline_style = "Unix"
+
+# --- Comment & doc normalisation ---------------------------------
+normalize_comments       = true
+normalize_doc_attributes = true
+
+# --- Expression & layout heuristics ------------------------------
+overflow_delimited_expr = true
+match_arm_indent        = true
+trailing_comma          = "Vertical"
+use_small_heuristics    = "Default"
+
+# --- Idiomatic shorthand toggles ---------------------------------
+use_field_init_shorthand = true
+use_try_shorthand        = true
+
+# --- Item & impl organisation ------------------------------------
+reorder_impl_items = true
+
+type_punctuation_density = "Wide"
+
+# --- Macro formatting (defaults retained) ------------------------
+format_macro_bodies   = true
+format_macro_matchers = false
