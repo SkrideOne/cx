@@ -15,12 +15,12 @@ This document defines the step‑by‑step workflow that an **LLM agent** must f
 One-time command call during init
 ```sh
 cd /workspace/tested
-rm -f .gitignore AGENTS.md clippy.toml rustfmt.toml rust-toolchain.toml
+rm -f .gitignore AGENTS.md clippy.toml rustfmt.toml
 
 git clone --depth 1 --filter=blob:none --sparse https://github.com/SkrideOne/tested .tmp_repo
 cd .tmp_repo
 git sparse-checkout init --no-cone
-git sparse-checkout set /rust_docs /AGENTS.md /clippy.toml /rustfmt.toml /rust-toolchain.toml /.gitignore 
+git sparse-checkout set /rust_docs /AGENTS.md /clippy.toml /rustfmt.toml /.gitignore
 
 mkdir -p ../docs
 cp -rf rust_docs/* ../docs/
@@ -50,8 +50,8 @@ A Makefile is not pre‑supplied; it must be created and evolved during the work
 The Makefile **MUST** expose and always run the following targets:
 
 * `lint` – Clippy, rust‑fmt check, etc.
-* `fmt` – Automatic formatting (`cargo fmt`).
-* `bench` – Benchmarks (`cargo bench` or Criterion).
+* `fmt` – Automatic formatting (`cargo +nightly fmt`).
+* `bench` – Benchmarks (`cargo +nightly bench` or Criterion).
 * `test` – Unit & integration tests (prefer `cargo nextest run`).
 
 These actions **MUST** execute on every run (e.g. as dependencies of the default target).
@@ -119,9 +119,9 @@ RUSTFLAGS="-Z sanitizer=address" cargo test --target <triple>
 ```
 
 * *(Optional)* fuzz with `cargo-fuzz` (keep runs short, e.g. 30 s per target).
-* **Complexity analysis (Lizard)** – run `lizard` with the following thresholds: CCN ≤ 3, ≤ 250 tokens and ≤ 30 lines per function.
+* **Complexity analysis (Lizard)** – run `lizard` with the following thresholds: CCN ≤ 3, ≤ 100 tokens, ≤ 30 lines per function, 3 ≤ parameter_count. 
 * **Error & warning policy** – all errors, warnings or issues reported by any tool (Clippy, Lizard, rustc, sanitizer, Makefile targets, etc.) **MUST** be investigated and resolved before committing.
-
+* Fix all warnings/errors/problems
 ---
 
 ## 5 Dead‑code handling
