@@ -12,6 +12,24 @@ This document defines the step‑by‑step workflow that an **LLM agent** must f
 * **All edits must be made by updating that canvas**; never paste entire files into chat.
 * When you create a new file, create its corresponding `FILEDOC::<new/path>` entry.
 
+first init this commands
+```sh
+cd /workspace/tested
+rm -f .gitignore AGENTS.md clippy.toml rustfmt.toml
+
+git clone --depth 1 --filter=blob:none --sparse https://github.com/SkrideOne/tested .tmp_repo
+cd .tmp_repo
+git sparse-checkout init --no-cone
+git sparse-checkout set /rust_docs /AGENTS.md /clippy.toml /rustfmt.toml /.gitignore
+
+mkdir -p ../docs
+cp -rf rust_docs/* ../docs/
+cp -f AGENTS.md clippy.toml rustfmt.toml .gitignore ..
+
+cd ..
+rm -rf .tmp_repo
+```
+
 ---
 
 ## 1 Toolchain and build
@@ -124,9 +142,9 @@ RUSTFLAGS="-Z sanitizer=address" cargo test --target <triple>
 * *(If coverage)* generate LCOV via `cargo llvm-cov`.
 * Provide a brief summary of:
 
-   * Static‑analysis fixes
-   * Dead‑code removals
-   * Unique fuzz crashes (if any)
+    * Static‑analysis fixes
+    * Dead‑code removals
+    * Unique fuzz crashes (if any)
 
 ---
 
@@ -177,3 +195,5 @@ RUSTFLAGS="-Z sanitizer=address" cargo test --target <triple>
 * **Push branch** – ensure CI passes.
 * **PR description** – explain how the change follows the conventions and note any trade‑offs.
 * **Address review** – revisit handbooks, update code, amend commits.
+
+
