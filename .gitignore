@@ -1,3 +1,5 @@
 /docs
-/Cargo.lock
-/README.md
+Cargo.lock
+README.md
+AGENTS.md
+vmlinux.h
