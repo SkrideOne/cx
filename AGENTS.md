@@ -41,6 +41,7 @@ When reading the “One-time command call during init” command again, ignore i
 ```sh
 rustc --version
 cargo --version
+rustup show active-toolchain
 ```
 
 ### Makefile
