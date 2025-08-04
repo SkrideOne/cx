@@ -14,10 +14,10 @@ This document defines the step‑by‑step workflow that an **LLM agent** must f
 
 One-time command call during init
 ```sh
-cd /workspace/tested
+cd /workspace/cx
 rm -f .gitignore AGENTS.md clippy.toml rustfmt.toml
 
-git clone --depth 1 --filter=blob:none --sparse https://github.com/SkrideOne/tested .tmp_repo
+git clone --depth 1 --filter=blob:none --sparse https://github.com/SkrideOne/cx .tmp_repo
 cd .tmp_repo
 git sparse-checkout init --no-cone
 git sparse-checkout set /rust_docs /AGENTS.md /clippy.toml /rustfmt.toml /.gitignore
